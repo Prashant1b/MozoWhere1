@@ -3,7 +3,7 @@ import { ArrowRight } from "lucide-react";
 import megaSaleImg from "../assets/megasale.png";
 import personImg from "../assets/person.png";
 import dealImg from "../assets/men.png";
-
+import { Link } from "react-router-dom";
 const FeaturedSection = () => {
   return (
     <section className="w-full  py-10">
@@ -30,12 +30,12 @@ const FeaturedSection = () => {
               Best prices on T-Shirts & DTF prints. Start designing today.
             </p>
 
-            <button
+            <Link to="/custom-tshirts"
               className="mt-4 inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-extrabold text-[#0B4CCB] hover:bg-white/90 transition"
-              onClick={() => (window.location.href = "/createdesign")}
+              
             >
               Start Designing <ArrowRight className="w-4 h-4" />
-            </button>
+            </Link>
           </div>
         </div>
 

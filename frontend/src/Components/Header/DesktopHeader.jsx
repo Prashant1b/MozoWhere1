@@ -12,10 +12,7 @@ export default function DesktopHeader({ menuLinks, mobileShopIn, setMobileShopIn
             <div className="flex items-center gap-5 whitespace-nowrap">
               <a href="#" className="hover:text-black">Offers</a>
               <a href="#" className="hover:text-black">Fanbook</a>
-              <a href="#" className="inline-flex items-center gap-1 hover:text-black">
-                <Smartphone className="h-3.5 w-3.5" />
-                Download App
-              </a>
+              <a href="#" className="inline-flex items-center hover:text-black"></a>
               <a href="#" className="hover:text-black">Find a store near me</a>
             </div>
 
@@ -41,9 +38,9 @@ export default function DesktopHeader({ menuLinks, mobileShopIn, setMobileShopIn
 
             {/* Primary Nav */}
             <nav className="flex items-center gap-6 text-[14px] font-semibold tracking-wide text-gray-900 whitespace-nowrap">
-              <a href="#" className="hover:text-black">MEN</a>
-              <a href="#" className="hover:text-black">WOMEN</a>
-              <a href="/custom-tshirts" className="hover:text-black">CUSTOMIZE</a>
+              <Link to="/shop" className="hover:text-black">MEN</Link>
+              <Link to="/shop" className="hover:text-black">WOMEN</Link>
+              <Link to="/custom-tshirts" className="hover:text-black">CUSTOMIZE</Link>
             </nav>
 
             <div className="flex-1" />

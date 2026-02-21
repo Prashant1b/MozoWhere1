@@ -52,7 +52,8 @@ import media48 from "../assets/DTF/1888.png";
 import media49 from "../assets/DTF/2222.png";
 import media50 from "../assets/DTF/111111.png";
 import media51 from "../assets/DTF/a24c6e27064c9e1a34562ae1a26ddd9b.png";
-import capFront  from "../assets/p7.png"
+import p7 from "../assets/capfront.png";
+import p8 from "../assets/cap.png"
 
 export const STEPS = [
   { id: 1, label: "Pick Color & Size" },
@@ -81,7 +82,7 @@ export const SIZES = [
 
 export const MOCKUPS_BY_PRODUCT = {
   tshirt: { front: media1, back: media2 },
-  cap: { front: capFront, back: capFront }, // back nahi hai to same
+  cap: { front: p7, back: p8 }, // back nahi hai to same
 };
 
 export const GALLERY_TABS = [

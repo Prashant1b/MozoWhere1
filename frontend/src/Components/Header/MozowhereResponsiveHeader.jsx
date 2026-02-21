@@ -11,9 +11,10 @@ export default function MozowhereResponsiveHeader({
 
   const menuLinks = useMemo(
     () => [
-      { label: "BULK ORDER", to: "/bulk-order" },
       { label: "SHOP NOW", to: "/shop" },
       { label: "CUSTOMIZE", to: "/custom-tshirts" },
+       { label: "CUSTOMIZE ACCESSORIES", to: "/custom-tshirts" },
+      { label: "BULK ORDER", to: "/bulk-order" },
       { label: "DESIGN WITH PRINTS", to: "/customizer" },
       { label: "ACCESSORIES", to: "/accessories" },
     ],
