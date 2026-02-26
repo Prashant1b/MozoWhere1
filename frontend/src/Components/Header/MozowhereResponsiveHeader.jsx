@@ -1,19 +1,18 @@
 import React, { useMemo, useState } from "react";
 import DesktopHeader from "./DesktopHeader";
 import MobileHeader from "./MobileHeader";
+import { useContext } from "react";
+import { AuthContext } from "../../Context/AuthContext";
 
-export default function MozowhereResponsiveHeader({
-  mobileShopIn,
-  setMobileShopIn,
-}) {
+export default function MozowhereResponsiveHeader({ mobileShopIn, setMobileShopIn }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const userName = "User";
+  const { user, booting, logout } = useContext(AuthContext);
 
   const menuLinks = useMemo(
     () => [
       { label: "SHOP NOW", to: "/shop" },
       { label: "CUSTOMIZE", to: "/custom-tshirts" },
-       { label: "CUSTOMIZE ACCESSORIES", to: "/custom-tshirts" },
+      { label: "CUSTOMIZE ACCESSORIES", to: "/custom-accessories" },
       { label: "BULK ORDER", to: "/bulk-order" },
       { label: "DESIGN WITH PRINTS", to: "/customizer" },
       { label: "ACCESSORIES", to: "/accessories" },
@@ -27,6 +26,9 @@ export default function MozowhereResponsiveHeader({
         menuLinks={menuLinks}
         mobileShopIn={mobileShopIn}
         setMobileShopIn={setMobileShopIn}
+        user={user}
+        booting={booting}
+        onLogout={logout}
       />
 
       <MobileHeader
@@ -34,7 +36,9 @@ export default function MozowhereResponsiveHeader({
         setMobileMenuOpen={setMobileMenuOpen}
         mobileShopIn={mobileShopIn}
         setMobileShopIn={setMobileShopIn}
-        userName={userName}
+        user={user}
+        booting={booting}
+        onLogout={logout}
       />
     </header>
   );
