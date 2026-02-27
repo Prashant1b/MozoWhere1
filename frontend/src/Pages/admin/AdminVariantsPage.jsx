@@ -79,7 +79,6 @@ export default function AdminVariantsPage() {
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params]);
 
   const resetForm = () => {

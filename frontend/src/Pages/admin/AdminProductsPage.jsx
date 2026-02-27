@@ -138,6 +138,7 @@ export default function AdminProductsPage() {
           <table className="min-w-[1100px] w-full text-left">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr className="text-xs uppercase tracking-wide text-gray-600">
+                 <th className="px-4 py-3">Product id</th>
                 <th className="px-4 py-3">Product</th>
                 <th className="px-4 py-3">Category</th>
                 <th className="px-4 py-3">Gender</th>
@@ -163,6 +164,9 @@ export default function AdminProductsPage() {
               ) : (
                 filtered.map((p) => (
                   <tr key={p._id} className="text-sm">
+                     <td className="px-4 py-4 text-gray-700">
+                      {p?._id|| p?._id || "-"}
+                    </td>
                     <td className="px-4 py-4">
                       <div className="font-semibold text-gray-900">{p.title}</div>
                       <div className="text-xs text-gray-500">{p.slug}</div>
