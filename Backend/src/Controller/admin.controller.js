@@ -25,7 +25,9 @@ const updateOrderStatus = async (req, res) => {
 
 const listAllOrders = async (req, res) => {
   try {
-    const orders = await Order.find().sort({ createdAt: -1 });
+    const orders = await Order.find()
+      .populate("user", "email emailid fullname name")
+      .sort({ createdAt: -1 });
     return res.json({ orders });
   } catch (err) {
     return res.status(500).json({ message: err.message });

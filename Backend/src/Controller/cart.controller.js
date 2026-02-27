@@ -18,14 +18,22 @@ const recalcCart = async (cart) => {
   return cart;
 };
 
+const sameProductVariant = (item, variantId) =>
+  item?.type !== "custom" && item?.variant && item.variant.toString() === variantId;
+
 const getMyCart = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    const cart = await Cart.findOne({ user: userId }).populate({
-      path: "items.variant",
-      populate: { path: "product" },
-    });
+    const cart = await Cart.findOne({ user: userId })
+      .populate({
+        path: "items.variant",
+        populate: { path: "product" },
+      })
+      .populate({
+        path: "items.customDesign",
+        populate: [{ path: "template" }, { path: "selected.fabric" }],
+      });
 
     return res.json({ cart: cart || { user: userId, items: [], totalAmount: 0 } });
   } catch (err) {
@@ -53,7 +61,7 @@ const addToCart = async (req, res) => {
     let cart = await Cart.findOne({ user: userId });
     if (!cart) cart = await Cart.create({ user: userId, items: [], totalAmount: 0 });
 
-    const idx = cart.items.findIndex((it) => it.variant.toString() === variantId);
+    const idx = cart.items.findIndex((it) => sameProductVariant(it, variantId));
 
     if (idx >= 0) {
       const newQty = cart.items[idx].quantity + qty;
@@ -62,7 +70,12 @@ const addToCart = async (req, res) => {
       cart.items[idx].quantity = newQty;
       cart.items[idx].priceAtAdd = unitPrice; // refresh snapshot price
     } else {
-      cart.items.push({ variant: variantId, quantity: qty, priceAtAdd: unitPrice });
+      cart.items.push({
+        type: "product",
+        variant: variantId,
+        quantity: qty,
+        priceAtAdd: unitPrice,
+      });
     }
 
     cart = await recalcCart(cart);
@@ -86,7 +99,7 @@ const updateCartItemQty = async (req, res) => {
     const cart = await Cart.findOne({ user: userId });
     if (!cart) return res.status(404).json({ message: "Cart not found" });
 
-    const idx = cart.items.findIndex((it) => it.variant.toString() === variantId);
+    const idx = cart.items.findIndex((it) => sameProductVariant(it, variantId));
     if (idx < 0) return res.status(404).json({ message: "Item not found in cart" });
 
     if (qty <= 0) {
@@ -120,7 +133,7 @@ const removeCartItem = async (req, res) => {
     const cart = await Cart.findOne({ user: userId });
     if (!cart) return res.status(404).json({ message: "Cart not found" });
 
-    cart.items = cart.items.filter((it) => it.variant.toString() !== variantId);
+    cart.items = cart.items.filter((it) => !sameProductVariant(it, variantId));
     await recalcCart(cart);
 
     return res.json({ cart });

@@ -1,187 +1,210 @@
-// src/pages/CustomizeListingPage.jsx
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-
-import { FILTERS, PRODUCTS, SORT_OPTIONS } from "../data/catalog";
-import ListingHeader from "../Components/customizerlisting/ListingHeader";
-import FilterSidebar from "../Components/customizerlisting/FilterSidebar";
-import SortDropdown from "../Components/customizerlisting/SortDropdown";
+import { customizeTemplateApi } from "../api/customizeTemplate.api";
 import BulkBanner from "../Components/customizerlisting/BulkBanner";
-import ProductGrid from "../Components/customizerlisting/ProductGrid";
 
-function ratingPass(productRating, rule) {
-  if (rule.startsWith("4")) return productRating >= 4;
-  if (rule.startsWith("3")) return productRating >= 3;
-  if (rule.startsWith("2")) return productRating >= 2;
-  return true;
+const SORT_OPTIONS = [
+  { id: "latest", label: "Newest" },
+  { id: "priceLow", label: "Price: Low to High" },
+  { id: "priceHigh", label: "Price: High to Low" },
+  { id: "title", label: "Name: A to Z" },
+];
+
+function getTemplateImage(t) {
+  return t?.mockups?.front || t?.mockups?.back || t?.mockups?.left || t?.mockups?.right || "";
 }
 
 export default function CustomizeListingPage() {
   const navigate = useNavigate();
-  const [sort, setSort] = useState("popularity");
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+  const [templates, setTemplates] = useState([]);
 
-  const [selected, setSelected] = useState(() => ({
-    gender: new Set(),
-    category: new Set(),
-    sizes: new Set(),
-    fit: new Set(),
-    sleeve: new Set(),
-    type: new Set(),
-    ratings: new Set(),
-  }));
+  const [q, setQ] = useState("");
+  const [type, setType] = useState("all");
+  const [fabric, setFabric] = useState("all");
+  const [sort, setSort] = useState("latest");
 
-  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      setErr("");
+      try {
+        const res = await customizeTemplateApi.list();
+        setTemplates(res.data?.templates || []);
+      } catch (e) {
+        setErr(e?.response?.data?.message || e?.message || "Failed to load templates");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, []);
+
+  const typeOptions = useMemo(() => {
+    const set = new Set(templates.map((t) => t?.type).filter(Boolean));
+    return ["all", ...Array.from(set)];
+  }, [templates]);
+
+  const fabricOptions = useMemo(() => {
+    const set = new Set();
+    for (const t of templates) {
+      for (const f of t?.fabrics || []) {
+        set.add(f?.name || f?.slug || "");
+      }
+    }
+    return ["all", ...Array.from(set).filter(Boolean)];
+  }, [templates]);
 
   const filtered = useMemo(() => {
-    const s = selected;
+    const needle = q.trim().toLowerCase();
 
-    const out = PRODUCTS.filter((p) => {
-      const passSet = (setLike, valueOrChecker) => {
-        if (!setLike || setLike.size === 0) return true;
-        if (typeof valueOrChecker === "function") {
-          for (const v of setLike) if (valueOrChecker(v)) return true;
-          return false;
-        }
-        return setLike.has(valueOrChecker);
-      };
+    const out = templates.filter((t) => {
+      const title = String(t?.title || "").toLowerCase();
+      const slug = String(t?.slug || "").toLowerCase();
+      const fabrics = (t?.fabrics || []).map((f) => String(f?.name || f?.slug || "").toLowerCase());
 
-      const genderOk = passSet(s.gender, p.gender);
-      const categoryOk = passSet(s.category, p.category);
-      const typeOk = passSet(s.type, p.type);
-      const fitOk = passSet(s.fit, p.fit);
-      const sleeveOk = passSet(s.sleeve, p.sleeve);
+      const qOk = !needle || title.includes(needle) || slug.includes(needle);
+      const typeOk = type === "all" || t?.type === type;
+      const fabricOk = fabric === "all" || fabrics.includes(fabric.toLowerCase());
 
-      const sizeOk = s.sizes.size === 0 || p.sizes.some((size) => s.sizes.has(size));
-
-      const ratingsOk =
-        s.ratings.size === 0 || [...s.ratings].some((rule) => ratingPass(p.rating, rule));
-
-      return genderOk && categoryOk && typeOk && fitOk && sleeveOk && sizeOk && ratingsOk;
+      return qOk && typeOk && fabricOk;
     });
 
-    const sorted = [...out];
-    sorted.sort((a, b) => {
-      if (sort === "popularity") return b.popularity - a.popularity;
-      if (sort === "priceLow") return a.price - b.price;
-      if (sort === "priceHigh") return b.price - a.price;
-      if (sort === "discountHigh") {
-        const da = (a.mrp - a.price) / a.mrp;
-        const db = (b.mrp - b.price) / b.mrp;
-        return db - da;
-      }
-      return 0;
+    out.sort((a, b) => {
+      if (sort === "priceLow") return Number(a?.basePrice || 0) - Number(b?.basePrice || 0);
+      if (sort === "priceHigh") return Number(b?.basePrice || 0) - Number(a?.basePrice || 0);
+      if (sort === "title") return String(a?.title || "").localeCompare(String(b?.title || ""));
+      return new Date(b?.createdAt || 0).getTime() - new Date(a?.createdAt || 0).getTime();
     });
 
-    return sorted;
-  }, [selected, sort]);
+    return out;
+  }, [templates, q, type, fabric, sort]);
 
-  function clearAll() {
-    setSelected({
-      gender: new Set(),
-      category: new Set(),
-      sizes: new Set(),
-      fit: new Set(),
-      sleeve: new Set(),
-      type: new Set(),
-      ratings: new Set(),
-    });
-  }
-
-  // ✅ IMPORTANT: map product.type -> "tshirt" | "cap"
-  function toCustomizerProduct(type) {
-    // Adjust mapping if your catalog uses different strings
-    // Example: "Caps" / "Hat" etc.
-    if (!type) return "tshirt";
-    const t = String(type).toLowerCase();
-    if (t === "cap" || t === "caps" || t === "hat") return "cap";
-    return "tshirt";
-  }
-
-  function handleProductClick(product) {
-    const productKey = toCustomizerProduct(product.type);
-
-    // ✅ Send selected product to CustomizerPage
-    navigate("/customizer", {
-      state: { product: productKey, productId: product.id },
-    });
-  }
+  const openCustomizer = (template) => {
+    if (!template?.slug) return;
+    navigate(`/customizer/${template.slug}`, { state: { template } });
+  };
 
   return (
-    <div className="bg-white">
-      <div className="bg-sky-700 text-white">
-        <div className="mx-auto max-w-7xl px-4 py-2 text-center text-sm font-bold">
-          🚚 FREE SHIPPING on all orders above ₹399
+    <div className="min-h-screen bg-[#f5f7fb]">
+      <div className="border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-600">
+          <span>Custom Studio</span>
+          <span>Live Templates from Backend</span>
         </div>
       </div>
 
       <div className="mx-auto max-w-7xl px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-8">
-          <aside className="hidden lg:block">
-            <FilterSidebar
-              filtersConfig={FILTERS}
-              selected={selected}
-              setSelected={setSelected}
-              onClear={clearAll}
-            />
-          </aside>
-
-          <main>
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-4">
-                <ListingHeader total={filtered.length} onOpenFilters={() => setMobileFiltersOpen(true)} />
-                <SortDropdown sort={sort} setSort={setSort} options={SORT_OPTIONS} />
-              </div>
-
-              <BulkBanner />
-
-              {/* ✅ Pass click handler */}
-              <ProductGrid products={filtered} onProductClick={handleProductClick} />
+        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h1 className="text-3xl font-black text-slate-900 md:text-4xl">Customize Products</h1>
+              <p className="mt-1 text-sm text-slate-600">Pick a template first, then open the design studio to customize color, size and print.</p>
             </div>
-          </main>
-        </div>
-      </div>
-
-      {/* Mobile Filters Drawer */}
-      <div
-        className={[
-          "fixed inset-0 z-40 lg:hidden transition",
-          mobileFiltersOpen ? "pointer-events-auto" : "pointer-events-none",
-        ].join(" ")}
-      >
-        <div
-          className={[
-            "absolute inset-0 bg-black/40 transition-opacity",
-            mobileFiltersOpen ? "opacity-100" : "opacity-0",
-          ].join(" ")}
-          onClick={() => setMobileFiltersOpen(false)}
-        />
-
-        <div
-          className={[
-            "absolute left-0 top-0 h-full w-[92%] max-w-[360px] bg-white p-4 shadow-2xl transition-transform",
-            mobileFiltersOpen ? "translate-x-0" : "-translate-x-full",
-          ].join(" ")}
-        >
-          <div className="flex items-center justify-between">
-            <div className="text-lg font-extrabold">Filters</div>
-            <button
-              onClick={() => setMobileFiltersOpen(false)}
-              className="rounded-lg border border-gray-200 px-3 py-1 text-sm font-bold"
-            >
-              Close
-            </button>
+            <div className="rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700">{filtered.length} templates</div>
           </div>
 
-          <div className="mt-4">
-            <FilterSidebar
-              filtersConfig={FILTERS}
-              selected={selected}
-              setSelected={setSelected}
-              onClear={clearAll}
+          <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-4">
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search template name"
+              className="h-11 rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-slate-400"
             />
+
+            <select
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+              className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400"
+            >
+              {typeOptions.map((v) => (
+                <option key={v} value={v}>
+                  {v === "all" ? "All Types" : v}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={fabric}
+              onChange={(e) => setFabric(e.target.value)}
+              className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400"
+            >
+              {fabricOptions.map((v) => (
+                <option key={v} value={v}>
+                  {v === "all" ? "All Fabrics" : v}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value)}
+              className="h-11 rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400"
+            >
+              {SORT_OPTIONS.map((v) => (
+                <option key={v.id} value={v.id}>
+                  Sort: {v.label}
+                </option>
+              ))}
+            </select>
           </div>
+        </div>
+
+        {loading ? (
+          <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600">Loading templates...</div>
+        ) : err ? (
+          <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{err}</div>
+        ) : filtered.length === 0 ? (
+          <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600">No templates found.</div>
+        ) : (
+          <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {filtered.map((t) => (
+              <button
+                key={t._id}
+                type="button"
+                onClick={() => openCustomizer(t)}
+                className="group overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
+              >
+                <div className="relative aspect-square bg-slate-100">
+                  {getTemplateImage(t) ? (
+                    <img
+                      src={getTemplateImage(t)}
+                      alt={t.title}
+                      className="h-full w-full object-cover"
+                      draggable={false}
+                    />
+                  ) : (
+                    <div className="grid h-full w-full place-items-center text-xs font-semibold text-slate-500">No image</div>
+                  )}
+                  <span className="absolute left-2 top-2 rounded-full bg-white/90 px-2 py-1 text-[11px] font-bold uppercase text-slate-700">
+                    {t.type}
+                  </span>
+                </div>
+
+                <div className="p-3">
+                  <div className="line-clamp-1 text-sm font-bold text-slate-900">{t.title}</div>
+                  <div className="mt-1 text-xs text-slate-500 line-clamp-1">{(t.fabrics || []).map((f) => f?.name).filter(Boolean).join(" | ") || "Standard fabric"}</div>
+                  <div className="mt-3 flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-extrabold text-slate-900">Rs {Number(t.basePrice || 0)}</div>
+                      <div className="text-[11px] text-slate-500">{(t.colors || []).length} colors | {(t.sizes || []).length} sizes</div>
+                    </div>
+                    <span className="rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white">Customize</span>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-10">
+          <BulkBanner />
         </div>
       </div>
     </div>
   );
 }
+
+

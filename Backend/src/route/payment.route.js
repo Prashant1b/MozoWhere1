@@ -43,6 +43,7 @@ const options = {
     const rpOrder = await razorpay.orders.create(options);
 
     order.razorpayOrderId = rpOrder.id;
+    order.paymentMethod = "online";
     await order.save();
 
     await Payment.create({
@@ -105,6 +106,7 @@ router.post("/verify", usermiddleware, async (req, res) => {
 
     // mark paid
     order.paymentStatus = "paid";
+    order.paymentMethod = "online";
     order.orderStatus = "confirmed";
     order.razorpayPaymentId = razorpay_payment_id;
     order.razorpaySignature = razorpay_signature;
@@ -148,6 +150,7 @@ router.post("/webhook", express.raw({ type: "application/json" }), async (req, r
       const order = await Order.findOne({ razorpayOrderId: rpOrderId });
       if (order) {
         order.paymentStatus = "paid";
+        order.paymentMethod = "online";
         order.orderStatus = "confirmed";
         order.razorpayPaymentId = rpPaymentId;
         await order.save();

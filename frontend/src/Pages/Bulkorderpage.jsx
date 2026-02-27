@@ -1,14 +1,28 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { bulkOrderApi } from "../api/bulkOrder.api";
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 export default function BulkOrder() {
   const [images, setImages] = useState([]);
   const [product, setProduct] = useState("");
+  const [clothOption, setClothOption] = useState("standard");
   const [quantity, setQuantity] = useState(0);
 
   const [name, setName] = useState("");
   const [company, setCompany] = useState("");
   const [email, setEmail] = useState("");
   const [notes, setNotes] = useState("");
+
+  const [submitting, setSubmitting] = useState(false);
+  const [submitMsg, setSubmitMsg] = useState("");
 
   const basePrices = {
     tshirt: 349,
@@ -22,12 +36,21 @@ export default function BulkOrder() {
     cap: "Cap / Accessories",
   };
 
+  const clothLabel = {
+    standard: "Standard",
+    cotton: "Cotton",
+    premium_cotton: "Premium Cotton",
+    poly_cotton: "Poly Cotton",
+    dri_fit: "Dri-Fit",
+    fleece: "Fleece",
+  };
+
   const getDiscount = (qty) => {
-    if (qty >= 500) return 0.4;  // 40%
-    if (qty >= 300) return 0.3;  // 30%
-    if (qty >= 100) return 0.2;  // 20%
-    if (qty >= 50) return 0.1;   // 10%
-    if (qty >= 30) return 0.05;  // 5%
+    if (qty >= 500) return 0.4;
+    if (qty >= 300) return 0.3;
+    if (qty >= 100) return 0.2;
+    if (qty >= 50) return 0.1;
+    if (qty >= 30) return 0.05;
     return 0;
   };
 
@@ -59,24 +82,74 @@ export default function BulkOrder() {
   const handleImageUpload = (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
-    setImages((prev) => [...prev, ...files]);
+    setImages((prev) => [...prev, ...files].slice(0, 8));
   };
 
   const removeImage = (index) => {
     setImages((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // prevent memory leaks from objectURL (optional improvement)
   useEffect(() => {
     return () => {
-      images.forEach((file) => URL.revokeObjectURL(file));
+      images.forEach((file) => {
+        try {
+          URL.revokeObjectURL(file.previewUrl);
+        } catch {}
+      });
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [images]);
+
+  const onSubmitBulk = async () => {
+    if (!canSubmit || submitting) return;
+    setSubmitMsg("");
+    setSubmitting(true);
+    try {
+      const payloadImages = [];
+      for (const f of images) {
+        const dataUrl = await fileToDataUrl(f);
+        payloadImages.push({
+          name: f.name,
+          mimeType: f.type,
+          size: f.size,
+          dataUrl,
+        });
+      }
+
+      await bulkOrderApi.create({
+        name,
+        company,
+        email,
+        notes,
+        product,
+        clothOption,
+        quantity,
+        pricing: {
+          basePrice,
+          discountPercent: Math.round(discount * 100),
+          unitPrice,
+          totalPrice,
+        },
+        images: payloadImages,
+      });
+
+      setSubmitMsg("Bulk order request submitted successfully.");
+      setImages([]);
+      setProduct("");
+      setClothOption("standard");
+      setQuantity(0);
+      setName("");
+      setCompany("");
+      setEmail("");
+      setNotes("");
+    } catch (e) {
+      setSubmitMsg(e?.response?.data?.message || "Failed to submit bulk order");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="bg-gray-50 min-h-screen">
-      {/* HERO */}
       <section className="bg-gradient-to-r from-black to-gray-800 text-white py-16 px-6">
         <div className="max-w-6xl mx-auto">
           <div className="max-w-3xl">
@@ -84,7 +157,7 @@ export default function BulkOrder() {
               Bulk custom printing
             </p>
             <h1 className="text-3xl md:text-5xl font-extrabold mt-2 leading-tight">
-              Bulk Custom Orders — Simple, Clear & Fast
+              Bulk Custom Orders - Simple, Clear & Fast
             </h1>
             <p className="text-gray-300 mt-4 text-base md:text-lg">
               Select a product, enter quantity, upload your design(s), and get instant bulk pricing.
@@ -99,14 +172,13 @@ export default function BulkOrder() {
                 Start Bulk Order
               </a>
               <div className="px-5 py-3 rounded-full bg-white/10 border border-white/15 text-sm">
-                ✅ Multiple designs allowed • ✅ Discounted pricing • ✅ Support included
+                Multiple designs allowed | Discounted pricing | Support included
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* HOW IT WORKS */}
       <section className="py-12 px-6">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-2xl md:text-3xl font-bold text-center mb-8">
@@ -132,7 +204,6 @@ export default function BulkOrder() {
         </div>
       </section>
 
-      {/* DISCOUNT TIERS */}
       <section className="bg-white py-12 px-6 border-y">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-2xl md:text-3xl font-bold text-center mb-8">
@@ -141,10 +212,10 @@ export default function BulkOrder() {
 
           <div className="grid md:grid-cols-4 gap-4">
             {[
-              { qty: "30 – 49", discount: "5% OFF" },
-              { qty: "50 – 99", discount: "10% OFF" },
-              { qty: "100 – 299", discount: "20% OFF" },
-              { qty: "300 – 499", discount: "30% OFF" },
+              { qty: "30 - 49", discount: "5% OFF" },
+              { qty: "50 - 99", discount: "10% OFF" },
+              { qty: "100 - 299", discount: "20% OFF" },
+              { qty: "300 - 499", discount: "30% OFF" },
             ].map((tier, index) => (
               <div
                 key={index}
@@ -158,28 +229,25 @@ export default function BulkOrder() {
           </div>
 
           <p className="text-center text-sm text-gray-500 mt-6">
-            For <span className="font-semibold">500+</span> quantity — custom pricing available (best rate).
+            For <span className="font-semibold">500+</span> quantity - custom pricing available (best rate).
           </p>
         </div>
       </section>
 
-      {/* FORM + SUMMARY */}
       <section id="bulk-form" className="py-14 px-6">
         <div className="max-w-6xl mx-auto grid lg:grid-cols-[1fr_380px] gap-6 items-start">
-          {/* FORM */}
           <div className="bg-white border rounded-3xl shadow-sm p-6 md:p-10">
             <div className="mb-8">
               <h2 className="text-2xl md:text-3xl font-bold">Request a Bulk Order</h2>
               <p className="text-sm text-gray-600 mt-2">
-                Fill details below. You will get confirmation on email/WhatsApp (as per your contact).
+                Fill details below. Your request is saved in system database.
               </p>
             </div>
 
-            <form className="grid md:grid-cols-2 gap-5">
-              {/* Step 1: contact */}
+            <form className="grid md:grid-cols-2 gap-5" onSubmit={(e) => e.preventDefault()}>
               <div className="md:col-span-2">
                 <p className="text-sm font-semibold text-gray-900 mb-2">
-                  Step 1 — Contact Details
+                  Step 1 - Contact Details
                 </p>
               </div>
 
@@ -218,10 +286,9 @@ export default function BulkOrder() {
                 />
               </div>
 
-              {/* Step 2: product */}
               <div className="md:col-span-2 pt-3">
                 <p className="text-sm font-semibold text-gray-900 mb-2">
-                  Step 2 — Product & Quantity
+                  Step 2 - Product & Quantity
                 </p>
               </div>
 
@@ -232,7 +299,7 @@ export default function BulkOrder() {
                   onChange={(e) => setProduct(e.target.value)}
                   className="mt-2 w-full border p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-black"
                 >
-                  <option value="">Choose…</option>
+                  <option value="">Choose...</option>
                   <option value="tshirt">T-Shirt</option>
                   <option value="hoodie">Hoodie</option>
                   <option value="cap">Cap / Accessories</option>
@@ -254,10 +321,25 @@ export default function BulkOrder() {
                 </p>
               </div>
 
-              {/* Step 3: upload */}
+              <div className="md:col-span-2">
+                <label className="text-sm font-semibold text-gray-700">Cloth Option</label>
+                <select
+                  value={clothOption}
+                  onChange={(e) => setClothOption(e.target.value)}
+                  className="mt-2 w-full border p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-black"
+                >
+                  <option value="standard">Standard</option>
+                  <option value="cotton">Cotton</option>
+                  <option value="premium_cotton">Premium Cotton</option>
+                  <option value="poly_cotton">Poly Cotton</option>
+                  <option value="dri_fit">Dri-Fit</option>
+                  <option value="fleece">Fleece</option>
+                </select>
+              </div>
+
               <div className="md:col-span-2 pt-3">
                 <p className="text-sm font-semibold text-gray-900 mb-2">
-                  Step 3 — Upload Your Designs
+                  Step 3 - Upload Your Designs
                 </p>
               </div>
 
@@ -276,7 +358,7 @@ export default function BulkOrder() {
                       Click to upload or drag & drop
                     </p>
                     <p className="text-sm text-gray-500 mt-1">
-                      PNG / JPG / SVG — multiple files allowed
+                      PNG / JPG / SVG - multiple files allowed
                     </p>
                     <p className="text-xs text-gray-400 mt-2">
                       Tip: Upload front/back design separately if needed.
@@ -313,7 +395,7 @@ export default function BulkOrder() {
                             className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition bg-black text-white rounded-full w-7 h-7 text-xs"
                             aria-label="Remove"
                           >
-                            ✕
+                            X
                           </button>
                         </div>
                       ))}
@@ -322,10 +404,9 @@ export default function BulkOrder() {
                 )}
               </div>
 
-              {/* Step 4: notes */}
               <div className="md:col-span-2 pt-3">
                 <p className="text-sm font-semibold text-gray-900 mb-2">
-                  Step 4 — Special Instructions
+                  Step 4 - Special Instructions
                 </p>
               </div>
 
@@ -336,27 +417,28 @@ export default function BulkOrder() {
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Example: 30 pcs Black (M/L), 20 pcs White (S/M), front logo + back name…"
+                  placeholder="Example: 30 pcs Black (M/L), 20 pcs White (S/M), front logo + back name..."
                   className="mt-2 w-full border p-3 rounded-xl h-32 focus:outline-none focus:ring-2 focus:ring-black"
                 />
               </div>
 
               <button
                 type="button"
-                disabled={!canSubmit}
+                disabled={!canSubmit || submitting}
                 className={[
                   "md:col-span-2 py-4 rounded-full font-semibold transition",
-                  canSubmit
+                  canSubmit && !submitting
                     ? "bg-black text-white hover:bg-gray-800"
                     : "bg-gray-200 text-gray-500 cursor-not-allowed",
                 ].join(" ")}
-                onClick={() => {
-                  // here you can send to backend / email service / whatsapp api
-                  alert("Bulk order submitted! (Connect API here)");
-                }}
+                onClick={onSubmitBulk}
               >
-                Submit Bulk Order Request
+                {submitting ? "Submitting..." : "Submit Bulk Order Request"}
               </button>
+
+              {submitMsg ? (
+                <p className="md:col-span-2 text-center text-sm text-gray-700">{submitMsg}</p>
+              ) : null}
 
               {!canSubmit && (
                 <p className="md:col-span-2 text-xs text-gray-500 text-center">
@@ -367,7 +449,6 @@ export default function BulkOrder() {
             </form>
           </div>
 
-          {/* SUMMARY (Sticky) */}
           <aside className="lg:sticky lg:top-6">
             <div className="bg-white border rounded-3xl shadow-sm p-6">
               <h3 className="text-lg font-bold">Order Summary</h3>
@@ -379,12 +460,16 @@ export default function BulkOrder() {
                 <div className="flex items-center justify-between">
                   <span className="text-gray-600">Product</span>
                   <span className="font-semibold">
-                    {product ? productLabel[product] : "—"}
+                    {product ? productLabel[product] : "-"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Cloth</span>
+                  <span className="font-semibold">{clothLabel[clothOption] || "Standard"}</span>
+                </div>
+                <div className="flex items-center justify-between">
                   <span className="text-gray-600">Quantity</span>
-                  <span className="font-semibold">{quantity || "—"}</span>
+                  <span className="font-semibold">{quantity || "-"}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-gray-600">Design Files</span>
@@ -396,21 +481,21 @@ export default function BulkOrder() {
                 <div className="flex items-center justify-between">
                   <span className="text-gray-600">Base Price / piece</span>
                   <span className="font-semibold">
-                    {product ? `₹${basePrice}` : "—"}
+                    {product ? `Rs ${basePrice}` : "-"}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <span className="text-gray-600">Discount</span>
                   <span className="font-semibold">
-                    {canCalculate ? `${Math.round(discount * 100)}%` : "—"}
+                    {canCalculate ? `${Math.round(discount * 100)}%` : "-"}
                   </span>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <span className="text-gray-600">Final / piece</span>
                   <span className="font-semibold">
-                    {canCalculate ? `₹${unitPrice}` : "—"}
+                    {canCalculate ? `Rs ${unitPrice}` : "-"}
                   </span>
                 </div>
 
@@ -419,14 +504,14 @@ export default function BulkOrder() {
                 <div className="flex items-center justify-between">
                   <span className="font-semibold">Total</span>
                   <span className="text-xl font-extrabold">
-                    {canCalculate ? `₹${totalPrice}` : "—"}
+                    {canCalculate ? `Rs ${totalPrice}` : "-"}
                   </span>
                 </div>
 
                 {quantity >= 500 && (
                   <div className="mt-3 text-xs bg-gray-50 border rounded-xl p-3 text-gray-700">
                     For 500+ quantity, we can give the <b>best possible rate</b>.
-                    Submit request — our team will contact you.
+                    Submit request - our team will contact you.
                   </div>
                 )}
               </div>

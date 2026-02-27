@@ -1,6 +1,6 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import { LayoutDashboard, Package, ShoppingBag, Folder, Shirt, UserPlus,Layers  } from "lucide-react";
+import { LayoutDashboard, Package, ShoppingBag, Folder, Shirt, UserPlus, Layers, BadgePercent, ClipboardList } from "lucide-react";
 
 const linkBase =
     "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-semibold";
@@ -76,6 +76,26 @@ export default function AdminSidebar() {
 >
   <Layers className="h-5 w-5" />
   Variants
+</NavLink>
+
+<NavLink
+  to="/admin/coupons"
+  className={({ isActive }) =>
+    `${linkBase} ${isActive ? active : inactive}`
+  }
+>
+  <BadgePercent className="h-5 w-5" />
+  Coupons
+</NavLink>
+
+<NavLink
+  to="/admin/bulk-orders"
+  className={({ isActive }) =>
+    `${linkBase} ${isActive ? active : inactive}`
+  }
+>
+  <ClipboardList className="h-5 w-5" />
+  Bulk Orders
 </NavLink>
             </nav>
         </aside>

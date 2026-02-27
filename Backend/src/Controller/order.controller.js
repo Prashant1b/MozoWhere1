@@ -2,12 +2,14 @@ const mongoose = require("mongoose");
 const Cart = require("../models/CartModel");
 const Order = require("../models/OrderModel");
 const ProductVariant = require("../models/ProductVariant");
+const CustomDesign = require("../models/CustomDesignModel");
 
 const createOrderFromCart = async (req, res) => {
   const session = await mongoose.startSession();
   try {
     const userId = req.user._id;
-    const { shippingAddress } = req.body;
+    const { shippingAddress, paymentMethod } = req.body;
+    const normalizedPaymentMethod = paymentMethod === "cod" ? "cod" : "online";
 
     session.startTransaction();
 
@@ -17,36 +19,99 @@ const createOrderFromCart = async (req, res) => {
       return res.status(400).json({ message: "Cart is empty" });
     }
 
-    // fetch all variants with product
-    const variantIds = cart.items.map((it) => it.variant);
+    const productItems = cart.items.filter((it) => it.type !== "custom");
+    const customItems = cart.items.filter((it) => it.type === "custom");
+
+    const variantIds = productItems.map((it) => it.variant).filter(Boolean);
     const variants = await ProductVariant.find({ _id: { $in: variantIds } })
       .populate("product")
       .session(session);
-
-    // map for fast lookup
     const vmap = new Map(variants.map((v) => [v._id.toString(), v]));
 
-    // build items + stock check
+    const customDesignIds = customItems.map((it) => it.customDesign).filter(Boolean);
+    const customDesigns = await CustomDesign.find({
+      _id: { $in: customDesignIds },
+      user: userId,
+    })
+      .populate("template")
+      .populate("selected.fabric")
+      .session(session);
+    const dmap = new Map(customDesigns.map((d) => [d._id.toString(), d]));
+
     const orderItems = [];
     let totalAmount = 0;
 
     for (const item of cart.items) {
-      const v = vmap.get(item.variant.toString());
+      const qty = Math.max(1, Number(item.quantity) || 1);
+
+      if (item.type === "custom") {
+        const design = dmap.get(String(item.customDesign));
+        if (!design) {
+          await session.abortTransaction();
+          return res.status(400).json({ message: "Some custom design is not available" });
+        }
+
+        const firstDesignImage =
+          (Array.isArray(design.layers)
+            ? design.layers.find((l) => l?.kind === "image" && l?.imageUrl)?.imageUrl
+            : "") || "";
+
+        const previewSnapshot = {
+          front: design.preview?.front || design.template?.mockups?.front || "",
+          back: design.preview?.back || design.template?.mockups?.back || "",
+          left: design.preview?.left || design.template?.mockups?.left || "",
+          right: design.preview?.right || design.template?.mockups?.right || "",
+        };
+
+        const unitPrice = Number(item.priceAtAdd || design.priceSnapshot?.total || design.template?.basePrice || 0);
+        const lineTotal = unitPrice * qty;
+        totalAmount += lineTotal;
+
+        orderItems.push({
+          type: "custom",
+          customDesignId: design._id,
+          title: design.template?.title || "Customized Product",
+          image:
+            previewSnapshot.front ||
+            previewSnapshot.back ||
+            firstDesignImage ||
+            "",
+          size: design.selected?.size || "",
+          color: design.selected?.color || "",
+          fabric: design.selected?.fabric?.name || "",
+          customSnapshot: {
+            selected: {
+              color: design.selected?.color || "",
+              size: design.selected?.size || "",
+              fabric: design.selected?.fabric?.name || "",
+            },
+            layers: design.layers || [],
+            preview: previewSnapshot,
+          },
+          unitPrice,
+          quantity: qty,
+          lineTotal,
+        });
+        continue;
+      }
+
+      const v = vmap.get(String(item.variant));
       if (!v || !v.isActive) {
         await session.abortTransaction();
         return res.status(400).json({ message: "Some item is no longer available" });
       }
 
-      if (v.stock < item.quantity) {
+      if (v.stock < qty) {
         await session.abortTransaction();
         return res.status(400).json({ message: `Not enough stock for ${v.sku || v._id}` });
       }
 
-      const unitPrice = item.priceAtAdd; 
-      const lineTotal = unitPrice * item.quantity;
+      const unitPrice = Number(item.priceAtAdd);
+      const lineTotal = unitPrice * qty;
       totalAmount += lineTotal;
 
       orderItems.push({
+        type: "product",
         variantId: v._id,
         productId: v.product._id,
         title: v.product.title,
@@ -54,13 +119,12 @@ const createOrderFromCart = async (req, res) => {
         size: v.size,
         color: v.color,
         unitPrice,
-        quantity: item.quantity,
+        quantity: qty,
         lineTotal,
       });
     }
 
-    // ✅ stock decrease (atomic within transaction)
-    for (const item of cart.items) {
+    for (const item of productItems) {
       const updated = await ProductVariant.updateOne(
         { _id: item.variant, stock: { $gte: item.quantity } },
         { $inc: { stock: -item.quantity } },
@@ -73,6 +137,14 @@ const createOrderFromCart = async (req, res) => {
       }
     }
 
+    if (customDesignIds.length) {
+      await CustomDesign.updateMany(
+        { _id: { $in: customDesignIds }, user: userId },
+        { $set: { status: "ordered" } },
+        { session }
+      );
+    }
+
     const order = await Order.create(
       [
         {
@@ -82,12 +154,12 @@ const createOrderFromCart = async (req, res) => {
           shippingAddress: shippingAddress || {},
           orderStatus: "pending",
           paymentStatus: "pending",
+          paymentMethod: normalizedPaymentMethod,
         },
       ],
       { session }
     );
 
-    // clear cart
     cart.items = [];
     cart.totalAmount = 0;
     await cart.save({ session });
@@ -138,16 +210,12 @@ const cancelMyOrder = async (req, res) => {
       return res.status(400).json({ message: `Order cannot be cancelled (status: ${order.orderStatus})` });
     }
 
-    // if already paid -> you may want refund flow, but still allow cancel (policy-based)
     order.orderStatus = "cancelled";
     await order.save();
 
-    // ✅ restore stock
     for (const item of order.items) {
-      await ProductVariant.updateOne(
-        { _id: item.variantId },
-        { $inc: { stock: item.quantity } }
-      );
+      if (item.type === "custom" || !item.variantId) continue;
+      await ProductVariant.updateOne({ _id: item.variantId }, { $inc: { stock: item.quantity } });
     }
 
     return res.json({ message: "Order cancelled and stock restored", order });
@@ -170,5 +238,30 @@ const trackOrder = async (req, res) => {
   }
 };
 
-module.exports = { createOrderFromCart, getMyOrders, getOrderById,
-    cancelMyOrder,trackOrder  };
+const confirmCodOrder = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { id } = req.params;
+
+    const order = await Order.findOne({ _id: id, user: userId });
+    if (!order) return res.status(404).json({ message: "Order not found" });
+
+    if (order.paymentStatus === "paid") {
+      return res.status(400).json({ message: "Order is already paid" });
+    }
+    if (order.orderStatus === "cancelled") {
+      return res.status(400).json({ message: "Cancelled order cannot be confirmed" });
+    }
+
+    order.paymentStatus = "pending";
+    order.paymentMethod = "cod";
+    order.orderStatus = "confirmed";
+    await order.save();
+
+    return res.json({ order, message: "COD order confirmed" });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+};
+
+module.exports = { createOrderFromCart, getMyOrders, getOrderById, cancelMyOrder, trackOrder, confirmCodOrder };

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { productApi } from "../api/product.api";
 import ProductSection from "../Components/shop/ProductSection";
 
@@ -12,16 +13,34 @@ function groupByCategory(products = []) {
   return Array.from(map.entries()).map(([name, items]) => ({ name, items }));
 }
 
-export default function ShopNowSections() {
+function toApiGender(value) {
+  const v = String(value || "").trim().toLowerCase();
+  if (v === "men" || v === "male") return "Male";
+  if (v === "women" || v === "female") return "Female";
+  return "";
+}
+
+export default function ShopNowSections({ selectedGender }) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [products, setProducts] = useState([]);
+  const [searchParams] = useSearchParams();
+
+  const apiGender = useMemo(() => {
+    const fromQuery = toApiGender(searchParams.get("cat"));
+    return fromQuery || toApiGender(selectedGender);
+  }, [searchParams, selectedGender]);
 
   const load = async () => {
     setLoading(true);
     setErr("");
     try {
-      const res = await productApi.list({ limit: 300, sort: "-createdAt", active: "true" });
+      const res = await productApi.list({
+        limit: 300,
+        sort: "-createdAt",
+        active: "true",
+        ...(apiGender ? { gender: apiGender } : {}),
+      });
       setProducts(res.data?.products || []);
     } catch (e) {
       setErr(e?.response?.data?.message || e.message || "Failed to load products");
@@ -30,7 +49,9 @@ export default function ShopNowSections() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, [apiGender]);
 
   const sections = useMemo(() => {
     const grouped = groupByCategory(products);
@@ -47,10 +68,12 @@ export default function ShopNowSections() {
   }, [products]);
 
   return (
-    <div className="w-full">
+    <div className="w-full overflow-x-hidden">
       <div className="mx-auto max-w-6xl px-4 pt-6">
         <div className="rounded-2xl bg-[#0b1220] py-12 text-center">
-          <div className="text-4xl font-semibold tracking-[0.35em] text-white">SHOP NOW</div>
+          <div className="text-3xl font-semibold tracking-[0.18em] text-white sm:text-4xl sm:tracking-[0.35em]">
+            SHOP NOW
+          </div>
         </div>
       </div>
 

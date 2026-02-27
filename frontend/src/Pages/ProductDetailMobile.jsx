@@ -52,14 +52,12 @@ export default function ProductDetailMobile() {
       setImgIdx(0);
       setSelectedVariant(null);
 
-      // wishlist status (if logged in)
       try {
         const wl = await wishlistApi.get();
         const ids = (wl.data?.wishlist?.products || []).map((x) => x._id?.toString?.() || x.toString?.());
         setIsWished(ids.includes(p?._id?.toString?.()));
       } catch {}
 
-      // suggestions (simple): same gender
       if (p?.gender) {
         const sres = await productApi.list({ limit: 20, active: "true", gender: p.gender });
         setSuggested((sres.data?.products || []).filter((x) => x.slug !== slug).slice(0, 16));
@@ -70,13 +68,13 @@ export default function ProductDetailMobile() {
       setLoading(false);
     }
   };
-useEffect(() => {
-  console.log("Variants:", variants);
-}, [variants]);
-  useEffect(() => { load(); }, [slug]);
+
+  useEffect(() => {
+    load();
+  }, [slug]);
 
   const images = product?.images?.length ? product.images : [];
-  const price = product ? (product.discountPrice ?? product.basePrice) : 0;
+  const price = product ? product.discountPrice ?? product.basePrice : 0;
   const off = getOffPercent(product?.basePrice, product?.discountPrice);
 
   const sizeItems = useMemo(() => {
@@ -113,8 +111,12 @@ useEffect(() => {
     try {
       setAdding(true);
       await cartApi.add({ variantId: selectedVariant._id, quantity: 1 });
-      showToast("Added to bag ✅");
+      showToast("Added to cart");
     } catch (e) {
+      if (e?.response?.status === 401) {
+        nav("/login", { state: { from: `/product/${slug}` } });
+        return;
+      }
       showToast(e?.response?.data?.message || e.message || "Failed to add");
     } finally {
       setAdding(false);
@@ -139,104 +141,118 @@ useEffect(() => {
   if (!product) return null;
 
   return (
-    <div className="mx-auto w-full max-w-md pb-24">
-      {/* Top bar */}
-      <div className="sticky top-0 z-20 flex items-center justify-between bg-white px-3 py-3">
-        <button onClick={() => nav(-1)} className="text-xl">←</button>
-        <div className="flex items-center gap-4 text-xl">
-          <button title="share">⤴</button>
-          <button onClick={onToggleWishlist} disabled={wishLoading} title="wishlist">
-            {isWished ? "❤️" : "🤍"}
-          </button>
-          <button title="bag">👜</button>
-        </div>
+    <div className="mx-auto w-full max-w-7xl px-4 pb-10 pt-4 sm:px-6 lg:px-8">
+      <div className="mb-4 flex items-center justify-between">
+        <button onClick={() => nav(-1)} className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold hover:bg-gray-50">
+          Back
+        </button>
+        <button
+          onClick={onToggleWishlist}
+          disabled={wishLoading}
+          className={`rounded-lg border px-3 py-2 text-sm font-semibold ${
+            isWished ? "border-red-200 bg-red-50 text-red-700" : "border-gray-200 text-gray-700 hover:bg-gray-50"
+          }`}
+        >
+          {isWished ? "Wishlisted" : "Add to Wishlist"}
+        </button>
       </div>
 
-      {/* Image */}
-      <div className="relative bg-white">
-        <div className="h-[360px] w-full bg-gray-50">
-          {images.length ? (
-            <img src={images[imgIdx]} alt={product.title} className="h-full w-full object-contain" />
-          ) : (
-            <div className="flex h-full items-center justify-center text-sm text-gray-400">No image</div>
-          )}
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1.2fr_0.8fr]">
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[84px_1fr]">
+            {images.length > 1 ? (
+              <div className="order-2 flex gap-3 overflow-auto sm:order-1 sm:flex-col">
+                {images.map((im, i) => (
+                  <button
+                    key={im + i}
+                    onClick={() => setImgIdx(i)}
+                    className={`h-20 w-20 shrink-0 overflow-hidden rounded-lg border ${
+                      i === imgIdx ? "border-black" : "border-gray-200"
+                    }`}
+                  >
+                    <img src={im} alt={`${product.title} ${i + 1}`} className="h-full w-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="order-1 overflow-hidden rounded-xl bg-gray-50 sm:order-2">
+              <div className="relative h-[320px] w-full sm:h-[460px]">
+                {images.length ? (
+                  <img src={images[imgIdx]} alt={product.title} className="h-full w-full object-contain" />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-sm text-gray-400">No image</div>
+                )}
+                <div className="absolute left-3 top-3 rounded-full bg-white px-3 py-1 text-xs font-semibold shadow">
+                  4.5 Rating
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {images.length > 1 ? (
-          <div className="mt-3 flex justify-center gap-2">
-            {images.map((_, i) => (
-              <button
-                key={i}
-                onClick={() => setImgIdx(i)}
-                className={`h-2 w-2 rounded-full ${i === imgIdx ? "bg-black" : "bg-gray-300"}`}
+        <aside className="h-fit rounded-2xl border border-gray-200 bg-white p-5 lg:sticky lg:top-4">
+          <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">Mozowhere</div>
+          <h1 className="mt-1 text-2xl font-extrabold text-gray-900">{product.title}</h1>
+
+          <div className="mt-4 flex items-end gap-3">
+            <div className="text-3xl font-black text-gray-900">Rs {price}</div>
+            {product.discountPrice ? (
+              <>
+                <div className="text-lg text-gray-400 line-through">Rs {product.basePrice}</div>
+                <div className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700">{off}% OFF</div>
+              </>
+            ) : null}
+          </div>
+          <div className="mt-1 text-xs text-gray-500">Inclusive of all taxes</div>
+
+          <div className="mt-6 flex items-end justify-between">
+            <div className="text-sm font-bold text-gray-900">Select Size</div>
+            <button className="text-xs font-semibold text-blue-600">Size guide</button>
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {sizeItems.map((s) => (
+              <SizePill
+                key={s.label}
+                label={s.label}
+                selected={selectedVariant?._id === s.variant?._id && !!s.variant}
+                disabled={!s.inStock || !s.variant}
+                onClick={() => s.variant && setSelectedVariant(s.variant)}
               />
             ))}
           </div>
-        ) : null}
 
-        <div className="absolute left-3 top-3 rounded-full bg-white px-3 py-2 text-sm font-semibold shadow">
-          ⭐ 4.5 <span className="text-gray-500 font-normal">446</span>
-        </div>
+          {!selectedVariant ? <div className="mt-3 text-xs text-gray-500">Please select a size to continue</div> : null}
+
+          <button
+            onClick={onAddToBag}
+            disabled={!selectedVariant || adding}
+            className="mt-6 h-12 w-full rounded-xl bg-black text-sm font-bold text-white hover:opacity-90 disabled:opacity-60"
+          >
+            {adding ? "ADDING..." : "ADD TO CART"}
+          </button>
+
+          <div className="mt-5 grid grid-cols-1 gap-2 text-xs text-gray-600">
+            <div className="rounded-lg bg-gray-50 px-3 py-2">Free shipping on prepaid orders</div>
+            <div className="rounded-lg bg-gray-50 px-3 py-2">7 day return policy</div>
+            <div className="rounded-lg bg-gray-50 px-3 py-2">Cash on delivery available</div>
+          </div>
+        </aside>
       </div>
 
-      {/* Info */}
-      <div className="px-4 pt-4">
-        <div className="text-sm font-semibold">Mozowhere®</div>
-        <div className="text-base text-gray-600">{product.title}</div>
-
-        <button
-          onClick={onAddToBag}
-          disabled={!selectedVariant || adding}
-          className={`mt-4 flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-sm font-semibold
-            ${selectedVariant ? "bg-[#f6d54a] text-black" : "bg-[#f6d54a]/60 text-gray-700"}
-          `}
-        >
-          👜 {adding ? "ADDING..." : "ADD TO BAG"}
-        </button>
-
-        <div className="mt-4 flex items-center gap-3">
-          <div className="text-3xl font-bold">₹{price}</div>
-          {product.discountPrice ? (
-            <>
-              <div className="text-lg text-gray-400 line-through">₹{product.basePrice}</div>
-              <div className="text-lg font-semibold text-emerald-600">{off}% OFF</div>
-            </>
-          ) : null}
-          <div className="text-xs text-gray-500">Inclusive of all taxes</div>
-        </div>
-
-        {/* Sizes */}
-        <div className="mt-8 flex items-end justify-between">
-          <div className="text-lg font-semibold">Select Size</div>
-          <button className="text-sm text-blue-600">Size guide ›</button>
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-3">
-          {sizeItems.map((s) => (
-            <SizePill
-              key={s.label}
-              label={s.label}
-              selected={selectedVariant?._id === s.variant?._id && !!s.variant}
-              disabled={!s.inStock || !s.variant}
-              onClick={() => s.variant && setSelectedVariant(s.variant)}
-            />
-          ))}
-        </div>
-
-        {!selectedVariant ? (
-          <div className="mt-4 text-sm text-gray-500">Please select a size to continue</div>
-        ) : null}
-
-        {/* Recommendations */}
+      <div className="mt-10">
         {suggested.length ? (
-          <div className="mt-10">
+          <div>
             <div className="flex items-center gap-3">
               <h3 className="text-lg font-bold">Frequently Bought Together</h3>
               <span className="rounded-md bg-orange-100 px-2 py-1 text-xs font-semibold text-orange-700">NEW</span>
             </div>
             <div className="mt-4">
               <HScrollRow>
-                {suggested.slice(0, 8).map((p) => <MiniProductCard key={p._id} p={p} />)}
+                {suggested.slice(0, 8).map((p) => (
+                  <MiniProductCard key={p._id} p={p} />
+                ))}
               </HScrollRow>
             </div>
           </div>
@@ -247,28 +263,17 @@ useEffect(() => {
             <h3 className="text-lg font-bold">You May Also Like</h3>
             <div className="mt-4">
               <HScrollRow>
-                {suggested.slice(8, 16).map((p) => <MiniProductCard key={p._id} p={p} />)}
+                {suggested.slice(8, 16).map((p) => (
+                  <MiniProductCard key={p._id} p={p} />
+                ))}
               </HScrollRow>
             </div>
           </div>
         ) : null}
       </div>
 
-      {/* Bottom bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 mx-auto max-w-md bg-white p-3 shadow-[0_-8px_24px_rgba(0,0,0,0.08)]">
-        <button
-          onClick={onAddToBag}
-          disabled={!selectedVariant || adding}
-          className={`flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-sm font-semibold
-            ${selectedVariant ? "bg-[#e9e9e9] text-black" : "bg-[#e9e9e9] text-gray-500"}
-          `}
-        >
-          👜 {adding ? "ADDING..." : `ADD TO BAG ₹${price}`}
-        </button>
-      </div>
-
       {toast ? (
-        <div className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full bg-black px-4 py-2 text-sm text-white">
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full bg-black px-4 py-2 text-sm text-white">
           {toast}
         </div>
       ) : null}

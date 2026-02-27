@@ -2,13 +2,46 @@ const mongoose = require("mongoose");
 
 const orderItemSchema = new mongoose.Schema(
   {
-    variantId: { type: mongoose.Schema.Types.ObjectId, required: true },
-    productId: { type: mongoose.Schema.Types.ObjectId, required: true },
+    type: { type: String, enum: ["product", "custom"], default: "product" },
+    variantId: { type: mongoose.Schema.Types.ObjectId, required: false },
+    productId: { type: mongoose.Schema.Types.ObjectId, required: false },
+    customDesignId: { type: mongoose.Schema.Types.ObjectId, required: false },
     title: String,
     image: String,
 
     size: String,
     color: String,
+    fabric: String,
+
+    customSnapshot: {
+      selected: {
+        color: String,
+        size: String,
+        fabric: String,
+      },
+      layers: [
+        {
+          kind: String,
+          side: String,
+          x: Number,
+          y: Number,
+          w: Number,
+          h: Number,
+          rotate: Number,
+          text: String,
+          font: String,
+          color: String,
+          fontSize: Number,
+          imageUrl: String,
+        },
+      ],
+      preview: {
+        front: String,
+        back: String,
+        left: String,
+        right: String,
+      },
+    },
 
     unitPrice: { type: Number, required: true },
     quantity: { type: Number, required: true },
@@ -19,7 +52,7 @@ const orderItemSchema = new mongoose.Schema(
 
 const orderSchema = new mongoose.Schema(
   {
-    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "user", required: true },
 
     items: { type: [orderItemSchema], default: [] },
     totalAmount: { type: Number, required: true },
@@ -43,6 +76,11 @@ const orderSchema = new mongoose.Schema(
       type: String,
       enum: ["pending", "paid", "failed", "refunded"],
       default: "pending",
+    },
+    paymentMethod: {
+      type: String,
+      enum: ["cod", "online"],
+      default: undefined,
     },
     razorpayOrderId: String,
     razorpayPaymentId: String,

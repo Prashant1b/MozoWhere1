@@ -18,6 +18,7 @@ const ReviewRoute=require("./route/review.routes");
 const Wishlistroute=require("./route/wishlist.routes");
 const customizeTemplateRoutes = require("./route/customize.template.routes");
 const customizeDesignRoutes = require("./route/customize.design.routes");
+const bulkOrderRoutes = require("./route/bulkOrder.routes");
 
   const cors = require("cors");
   app.use(
@@ -27,7 +28,7 @@ const customizeDesignRoutes = require("./route/customize.design.routes");
   })
 );
 
-  app.use(express.json());
+  app.use(express.json({ limit: "20mb" }));
   app.use(cookieparser());
 app.use("/user",Router);
  app.use("/categories", categoryRoutes);
@@ -44,6 +45,7 @@ app.use("/reviews", ReviewRoute);
 app.use("/wishlist", Wishlistroute);
 app.use("/customize/templates", customizeTemplateRoutes);
 app.use("/customize/designs", customizeDesignRoutes);
+app.use("/bulk-orders", bulkOrderRoutes);
 
   const Initaliseconnection=async()=>{
       try{
