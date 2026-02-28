@@ -14,6 +14,7 @@ export default function PreviewStep({
   selectedColor,
   selectedSize,
   selectedFabric,
+  showFabric = true,
   designBySide,
   onBack,
   onAddToBag,
@@ -142,12 +143,14 @@ export default function PreviewStep({
             </div>
             <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
               <div className="text-xs text-slate-500">Size</div>
-              <div className="text-sm font-bold text-slate-900">{selectedSize?.id || "-"}</div>
+              <div className="text-sm font-bold text-slate-900">{selectedSize?.id || "N/A"}</div>
             </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-              <div className="text-xs text-slate-500">Fabric</div>
-              <div className="text-sm font-bold text-slate-900">{selectedFabric?.name || "Standard"}</div>
-            </div>
+            {showFabric ? (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                <div className="text-xs text-slate-500">Fabric</div>
+                <div className="text-sm font-bold text-slate-900">{selectedFabric?.name || "Standard"}</div>
+              </div>
+            ) : null}
             <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
               <div className="text-xs text-slate-500">Design elements</div>
               <div className="text-sm font-bold text-slate-900">{(designBySide?.front?.length || 0) + (designBySide?.back?.length || 0)}</div>

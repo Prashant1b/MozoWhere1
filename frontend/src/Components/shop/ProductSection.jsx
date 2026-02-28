@@ -1,7 +1,7 @@
 import React, { useRef } from "react";
 import ProductCard from "./ProductCard";
 
-export default function ProductSection({ title, items = [] }) {
+export default function ProductSection({ title, items = [], wishedIds = new Set(), onToggleWishlist }) {
   const rowRef = useRef(null);
 
   const scrollBy = (dx) => {
@@ -12,33 +12,45 @@ export default function ProductSection({ title, items = [] }) {
   if (!items.length) return null;
 
   return (
-    <section className="mt-12 overflow-x-hidden">
-      <div className="rounded-md bg-[#f2e6e6] py-4 text-center">
-        <div className="text-lg tracking-[0.18em] text-gray-900 sm:text-xl sm:tracking-[0.35em]">
-          {title}
+    <section className="mt-10 overflow-x-hidden">
+      <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-3">
+        <div>
+          <h3 className="text-xl font-black tracking-tight text-slate-900 md:text-2xl">{title}</h3>
+          <p className="text-xs font-medium text-slate-500">Top picks in {title}</p>
+        </div>
+
+        <div className="hidden items-center gap-2 md:flex">
+          <button
+            onClick={() => scrollBy(-900)}
+            className="grid h-9 w-9 place-items-center rounded-full border border-slate-200 bg-white text-xl text-slate-700 shadow-sm transition hover:bg-slate-50"
+            aria-label={`Scroll ${title} left`}
+          >
+            {"<"}
+          </button>
+          <button
+            onClick={() => scrollBy(900)}
+            className="grid h-9 w-9 place-items-center rounded-full border border-slate-200 bg-white text-xl text-slate-700 shadow-sm transition hover:bg-slate-50"
+            aria-label={`Scroll ${title} right`}
+          >
+            {">"}
+          </button>
         </div>
       </div>
 
       <div className="relative mt-6">
-        <button
-          onClick={() => scrollBy(-900)}
-          className="absolute left-2 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-white/90 px-4 py-3 text-2xl shadow hover:bg-white md:block"
+        <div
+          ref={rowRef}
+          className="hide-scrollbar flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-2 sm:gap-5"
         >
-          {"<"}
-        </button>
-
-        <div ref={rowRef} className="hide-scrollbar flex gap-4 overflow-x-auto scroll-smooth px-2 pb-2 sm:gap-6 sm:px-10">
           {items.map((p) => (
-            <ProductCard key={p._id} p={p} />
+            <ProductCard
+              key={p._id}
+              p={p}
+              isWished={wishedIds.has(String(p?._id))}
+              onToggleWishlist={onToggleWishlist}
+            />
           ))}
         </div>
-
-        <button
-          onClick={() => scrollBy(900)}
-          className="absolute right-2 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-white/90 px-4 py-3 text-2xl shadow hover:bg-white md:block"
-        >
-          {">"}
-        </button>
       </div>
     </section>
   );

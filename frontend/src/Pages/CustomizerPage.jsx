@@ -8,6 +8,7 @@ import PreviewStep from "../Components/customizer/PreviewStep";
 import { customizeTemplateApi } from "../api/customizeTemplate.api";
 import { customizeDesignApi } from "../api/customizeDesign.api";
 import { cartApi } from "../api/cart.api";
+import { buildPreviewForSide } from "../utils/customPreview";
 import {
   GALLERY_TABS,
   GALLERY_ITEMS,
@@ -116,6 +117,9 @@ export default function CustomizerPage() {
   const [designBySide, setDesignBySide] = useState({ front: [], back: [] });
   const [addingCustom, setAddingCustom] = useState(false);
   const [addMessage, setAddMessage] = useState("");
+  const isAccessoryType = ["cap", "mug", "pen", "accessory"].includes(
+    String(template?.type || "").toLowerCase()
+  );
 
   useEffect(() => {
     const templateSlug = slug || location.state?.template?.slug;
@@ -157,25 +161,28 @@ export default function CustomizerPage() {
   }, [template]);
 
   const fabrics = useMemo(() => {
+    if (isAccessoryType) return [];
     const fromBackend = template?.fabrics || [];
     return fromBackend.length ? fromBackend : DEFAULT_FABRICS;
-  }, [template]);
+  }, [template, isAccessoryType]);
 
   useEffect(() => {
     if (colors.length && !selectedColor) setSelectedColor(colors[0]);
     if (sizes.length && !selectedSize) setSelectedSize(sizes[0]);
     if (fabrics.length && !selectedFabric) setSelectedFabric(fabrics[0]);
+    if (!fabrics.length && selectedFabric) setSelectedFabric(null);
   }, [colors, sizes, fabrics, selectedColor, selectedSize, selectedFabric]);
 
   const canGoStep2 = useMemo(() => {
     const fabricOk = !fabrics.length || Boolean(selectedFabric);
-    return Boolean(selectedColor?.id) && Boolean(selectedSize?.id) && fabricOk;
-  }, [selectedColor, selectedSize, selectedFabric, fabrics]);
+    const sizeOk = !sizes.length || Boolean(selectedSize?.id);
+    return Boolean(selectedColor?.id) && sizeOk && fabricOk;
+  }, [selectedColor, selectedSize, selectedFabric, fabrics, sizes]);
 
   const mockups = useMemo(() => {
-    const fallback = MOCKUPS_BY_PRODUCT?.[template?.type] || MOCKUPS_BY_PRODUCT?.tshirt || { front: "", back: "" };
+    const fallback = MOCKUPS_BY_PRODUCT?.[template?.type] || { front: "", back: "" };
     const front = template?.mockups?.front || fallback.front || fallback.back || "";
-    const back = template?.mockups?.back || fallback.back || front;
+    const back = template?.mockups?.back || fallback.back || front || "";
     return { front, back };
   }, [template]);
 
@@ -198,7 +205,26 @@ export default function CustomizerPage() {
       if (!designId) throw new Error("Design create failed");
 
       const layers = mapLayers(designBySide);
-      await customizeDesignApi.update(designId, { layers });
+      const previewFront = await buildPreviewForSide({
+        mockupSrc: mockups.front || mockups.back || "",
+        tintHex: selectedColor?.hex || "#ffffff",
+        layers,
+        side: "front",
+      });
+      const previewBack = await buildPreviewForSide({
+        mockupSrc: mockups.back || mockups.front || "",
+        tintHex: selectedColor?.hex || "#ffffff",
+        layers,
+        side: "back",
+      });
+
+      await customizeDesignApi.update(designId, {
+        layers,
+        preview: {
+          front: previewFront || "",
+          back: previewBack || "",
+        },
+      });
       await customizeDesignApi.setReady(designId);
       await cartApi.addCustom({ designId, quantity: 1 });
 
@@ -281,6 +307,7 @@ export default function CustomizerPage() {
           selectedColor={selectedColor}
           selectedSize={selectedSize}
           selectedFabric={selectedFabric}
+          showFabric={!isAccessoryType}
           designBySide={designBySide}
           setDesignBySide={setDesignBySide}
           galleryTabs={GALLERY_TABS}
@@ -296,6 +323,7 @@ export default function CustomizerPage() {
           selectedColor={selectedColor}
           selectedSize={selectedSize}
           selectedFabric={selectedFabric}
+          showFabric={!isAccessoryType}
           designBySide={designBySide}
           addingCustom={addingCustom}
           addMessage={addMessage}

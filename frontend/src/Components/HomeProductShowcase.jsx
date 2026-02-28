@@ -1,8 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
 import { productApi } from "../api/product.api";
-import ProductSection from "../Components/shop/ProductSection";
-import { wishlistApi } from "../api/wishlist.api";
+import ProductSection from "./shop/ProductSection";
 
 function groupByCategory(products = []) {
   const map = new Map();
@@ -21,18 +19,12 @@ function toApiGender(value) {
   return "";
 }
 
-export default function ShopNowSections({ selectedGender }) {
+export default function HomeProductShowcase({ selectedGender }) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [products, setProducts] = useState([]);
-  const [wishedIds, setWishedIds] = useState(new Set());
-  const [searchParams] = useSearchParams();
-  const categorySlug = searchParams.get("category") || "";
 
-  const apiGender = useMemo(() => {
-    const fromQuery = toApiGender(searchParams.get("cat"));
-    return fromQuery || toApiGender(selectedGender);
-  }, [searchParams, selectedGender]);
+  const apiGender = useMemo(() => toApiGender(selectedGender), [selectedGender]);
 
   const load = async () => {
     setLoading(true);
@@ -43,16 +35,10 @@ export default function ShopNowSections({ selectedGender }) {
         sort: "-createdAt",
         active: "true",
         ...(apiGender ? { gender: apiGender } : {}),
-        ...(categorySlug ? { categorySlug } : {}),
       });
       setProducts(res.data?.products || []);
-      try {
-        const wl = await wishlistApi.get();
-        const ids = (wl.data?.wishlist?.products || []).map((x) => String(x?._id || x));
-        setWishedIds(new Set(ids));
-      } catch {}
     } catch (e) {
-      setErr(e?.response?.data?.message || e.message || "Failed to load products");
+      setErr(e?.response?.data?.message || e?.message || "Failed to load products");
     } finally {
       setLoading(false);
     }
@@ -60,7 +46,7 @@ export default function ShopNowSections({ selectedGender }) {
 
   useEffect(() => {
     load();
-  }, [apiGender, categorySlug]);
+  }, [apiGender]);
 
   const sections = useMemo(() => {
     const grouped = groupByCategory(products);
@@ -76,44 +62,30 @@ export default function ShopNowSections({ selectedGender }) {
     return grouped.filter((s) => s.items?.length);
   }, [products]);
 
-  const onToggleWishlist = (productId, nextWish) => {
-    setWishedIds((prev) => {
-      const next = new Set(prev);
-      if (nextWish) next.add(String(productId));
-      else next.delete(String(productId));
-      return next;
-    });
-  };
-
   return (
-    <div className="w-full overflow-x-hidden">
-      <div className="mx-auto max-w-6xl px-4 pt-6">
-        <div className="rounded-2xl bg-[#0b1220] py-12 text-center">
-          <div className="text-3xl font-semibold tracking-[0.18em] text-white sm:text-4xl sm:tracking-[0.35em]">
-            SHOP NOW
+    <section className="w-full overflow-x-hidden bg-white">
+      <div className="mx-auto max-w-7xl px-4 pb-8 pt-8 md:pt-10">
+        <div className="mb-2 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-2xl font-black tracking-tight text-slate-900 md:text-3xl">Shop By Category</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Premium picks curated for your selected collection.
+            </p>
           </div>
         </div>
-      </div>
 
-      <div className="mx-auto max-w-6xl px-4 pb-12">
         {loading ? (
-          <div className="py-10 text-sm text-gray-500">Loading...</div>
+          <div className="py-10 text-sm text-slate-500">Loading products...</div>
         ) : err ? (
           <div className="py-10">
             <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">{err}</div>
           </div>
         ) : (
           sections.map((sec) => (
-            <ProductSection
-              key={sec.name}
-              title={sec.name}
-              items={sec.items}
-              wishedIds={wishedIds}
-              onToggleWishlist={onToggleWishlist}
-            />
+            <ProductSection key={sec.name} title={sec.name} items={sec.items} />
           ))
         )}
       </div>
-    </div>
+    </section>
   );
 }

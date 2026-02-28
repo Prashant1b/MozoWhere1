@@ -15,6 +15,16 @@ function getOffPercent(base, disc) {
 
 const SIZE_ORDER = ["XS", "S", "M", "L", "XL", "2XL", "3XL"];
 
+function isAccessoryLikeProduct(product) {
+  const text = [
+    String(product?.title || "").toLowerCase(),
+    String(product?.category?.name || "").toLowerCase(),
+    String(product?.category?.slug || "").toLowerCase(),
+    ...(Array.isArray(product?.tags) ? product.tags.map((t) => String(t).toLowerCase()) : []),
+  ].join(" ");
+  return ["cap", "mug", "pen", "jug", "bottle", "accessory", "accessories"].some((k) => text.includes(k));
+}
+
 export default function ProductDetailMobile() {
   const { slug } = useParams();
   const nav = useNavigate();
@@ -76,8 +86,12 @@ export default function ProductDetailMobile() {
   const images = product?.images?.length ? product.images : [];
   const price = product ? product.discountPrice ?? product.basePrice : 0;
   const off = getOffPercent(product?.basePrice, product?.discountPrice);
+  const shouldSkipSize = product?.sizeRequired === false || isAccessoryLikeProduct(product);
+  const needsSizeSelection = !shouldSkipSize;
 
   const sizeItems = useMemo(() => {
+    if (shouldSkipSize) return [];
+
     const map = new Map();
     for (const v of variants) {
       if (v.isActive === false) continue;
@@ -102,15 +116,28 @@ export default function ProductDetailMobile() {
       return ia - ib;
     });
 
-    if (!arr.length) arr = SIZE_ORDER.map((s) => ({ label: s, variant: null, inStock: true }));
     return arr;
-  }, [variants]);
+  }, [variants, shouldSkipSize]);
+
+  const firstInStockVariant = useMemo(
+    () => variants.find((v) => v?.isActive !== false && Number(v?.stock || 0) > 0) || null,
+    [variants]
+  );
 
   const onAddToBag = async () => {
-    if (!selectedVariant) return showToast("Please select a size to continue");
+    if (needsSizeSelection && !selectedVariant) {
+      return showToast("Please select a size to continue");
+    }
     try {
       setAdding(true);
-      await cartApi.add({ variantId: selectedVariant._id, quantity: 1 });
+      const variantToUse = selectedVariant || firstInStockVariant;
+      if (variantToUse?._id) {
+        await cartApi.add({ variantId: variantToUse._id, quantity: 1 });
+      } else if (product?._id) {
+        await cartApi.addProduct({ productId: product._id, quantity: 1 });
+      } else {
+        throw new Error("No variant available");
+      }
       showToast("Added to cart");
     } catch (e) {
       if (e?.response?.status === 401) {
@@ -206,28 +233,36 @@ export default function ProductDetailMobile() {
           </div>
           <div className="mt-1 text-xs text-gray-500">Inclusive of all taxes</div>
 
-          <div className="mt-6 flex items-end justify-between">
-            <div className="text-sm font-bold text-gray-900">Select Size</div>
-            <button className="text-xs font-semibold text-blue-600">Size guide</button>
-          </div>
+          {needsSizeSelection ? (
+            <>
+              <div className="mt-6 flex items-end justify-between">
+                <div className="text-sm font-bold text-gray-900">Select Size</div>
+                <button className="text-xs font-semibold text-blue-600">Size guide</button>
+              </div>
 
-          <div className="mt-3 flex flex-wrap gap-2">
-            {sizeItems.map((s) => (
-              <SizePill
-                key={s.label}
-                label={s.label}
-                selected={selectedVariant?._id === s.variant?._id && !!s.variant}
-                disabled={!s.inStock || !s.variant}
-                onClick={() => s.variant && setSelectedVariant(s.variant)}
-              />
-            ))}
-          </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {sizeItems.map((s) => (
+                  <SizePill
+                    key={s.label}
+                    label={s.label}
+                    selected={selectedVariant?._id === s.variant?._id && !!s.variant}
+                    disabled={!s.inStock || !s.variant}
+                    onClick={() => s.variant && setSelectedVariant(s.variant)}
+                  />
+                ))}
+              </div>
 
-          {!selectedVariant ? <div className="mt-3 text-xs text-gray-500">Please select a size to continue</div> : null}
+              {!selectedVariant ? <div className="mt-3 text-xs text-gray-500">Please select a size to continue</div> : null}
+            </>
+          ) : (
+            <div className="mt-6 rounded-lg bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700">
+              Size not required for this item
+            </div>
+          )}
 
           <button
             onClick={onAddToBag}
-            disabled={!selectedVariant || adding}
+            disabled={adding}
             className="mt-6 h-12 w-full rounded-xl bg-black text-sm font-bold text-white hover:opacity-90 disabled:opacity-60"
           >
             {adding ? "ADDING..." : "ADD TO CART"}

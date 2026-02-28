@@ -12,10 +12,10 @@ export default function ProductFormModal({
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState(""); // id or slug/name
+  const [category, setCategory] = useState("");
 
-  // ✅ NEW: gender
-  const [gender, setGender] = useState("Male"); // Male | Female
+  const [gender, setGender] = useState("Male");
+  const [sizeRequired, setSizeRequired] = useState(true);
 
   const [imagesText, setImagesText] = useState("");
   const [tagsText, setTagsText] = useState("");
@@ -31,8 +31,8 @@ export default function ProductFormModal({
     setDescription(initial?.description || "");
     setCategory(initial?.category?._id || initial?.category || "");
 
-    // ✅ set gender in edit mode
     setGender(initial?.gender || "Male");
+    setSizeRequired(initial?.sizeRequired ?? true);
 
     setImagesText(Array.isArray(initial?.images) ? initial.images.join("\n") : "");
     setTagsText(Array.isArray(initial?.tags) ? initial.tags.join(", ") : "");
@@ -57,7 +57,8 @@ export default function ProductFormModal({
       slug: slug || undefined,
       description,
       category,
-      gender, // ✅ included
+      gender,
+      sizeRequired,
       images,
       tags,
       basePrice: basePrice === "" ? undefined : Number(basePrice),
@@ -70,6 +71,7 @@ export default function ProductFormModal({
     description,
     category,
     gender,
+    sizeRequired,
     imagesText,
     tagsText,
     basePrice,
@@ -81,7 +83,6 @@ export default function ProductFormModal({
 
   return (
     <div className="fixed inset-0 z-[9999] bg-black/40">
-      {/* backdrop */}
       <button
         className="absolute inset-0 cursor-default"
         onClick={onClose}
@@ -89,9 +90,7 @@ export default function ProductFormModal({
       />
 
       <div className="relative mx-auto my-6 w-full max-w-2xl px-4">
-        {/* card */}
-        <div className="rounded-2xl border border-gray-200 bg-white shadow-2xl max-h-[85vh] flex flex-col">
-          {/* header */}
+        <div className="max-h-[85vh] rounded-2xl border border-gray-200 bg-white shadow-2xl flex flex-col">
           <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
             <div className="font-extrabold text-gray-900">
               {isEdit ? "Edit Product" : "Create Product"}
@@ -101,11 +100,10 @@ export default function ProductFormModal({
               className="rounded-lg px-3 py-2 text-sm font-semibold hover:bg-gray-100"
               aria-label="Close modal"
             >
-              ✕
+              X
             </button>
           </div>
 
-          {/* scrollable body */}
           <form
             className="flex-1 overflow-y-auto p-5 space-y-4"
             onSubmit={(e) => {
@@ -132,7 +130,6 @@ export default function ProductFormModal({
                 />
               </Field>
 
-              {/* ✅ NEW: Gender */}
               <Field label="Gender">
                 <select
                   value={gender}
@@ -142,6 +139,7 @@ export default function ProductFormModal({
                 >
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
+                  <option value="All">All</option>
                 </select>
               </Field>
 
@@ -186,6 +184,18 @@ export default function ProductFormModal({
                 </label>
               </div>
 
+              <div className="flex items-center gap-2 md:col-span-2">
+                <input
+                  id="sizeRequired"
+                  type="checkbox"
+                  checked={sizeRequired}
+                  onChange={(e) => setSizeRequired(e.target.checked)}
+                />
+                <label htmlFor="sizeRequired" className="text-sm font-semibold text-gray-700">
+                  Size required for this product
+                </label>
+              </div>
+
               <Field label="Tags (comma separated)" span>
                 <input
                   value={tagsText}
@@ -215,7 +225,6 @@ export default function ProductFormModal({
               </Field>
             </div>
 
-            {/* sticky footer */}
             <div className="sticky bottom-0 bg-white flex items-center justify-end gap-2 border-t border-gray-200 p-4 -mx-5">
               <button
                 type="button"

@@ -11,18 +11,14 @@ export default function AdminProductsPage() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
+
   const load = async (query = q) => {
     setErr("");
     setLoading(true);
     try {
-      const res = await productApi.list({
-        q: query,
-        limit: 50,
-        sort: "-createdAt",
-      });
+      const res = await productApi.list({ q: query, limit: 50, sort: "-createdAt" });
       setItems(res.data?.products || []);
     } catch (e) {
-      console.log("LIST ERROR:", e?.response?.data || e?.message);
       setErr(e?.response?.data?.message || "Failed to load products");
     } finally {
       setLoading(false);
@@ -32,6 +28,7 @@ export default function AdminProductsPage() {
   useEffect(() => {
     load("");
   }, []);
+
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     if (!term) return items;
@@ -41,7 +38,8 @@ export default function AdminProductsPage() {
       const s = String(p?.slug || "").toLowerCase();
       const c = String(p?.category?.name || p?.category?.slug || "").toLowerCase();
       const g = String(p?.gender || "").toLowerCase();
-      return t.includes(term) || s.includes(term) || c.includes(term) || g.includes(term);
+      const sizeReq = p?.sizeRequired === false ? "no" : "yes";
+      return t.includes(term) || s.includes(term) || c.includes(term) || g.includes(term) || sizeReq.includes(term);
     });
   }, [items, q]);
 
@@ -71,7 +69,6 @@ export default function AdminProductsPage() {
       setModalOpen(false);
       setEditing(null);
     } catch (e) {
-      console.log("SAVE ERROR:", e?.response?.data || e?.message);
       setErr(e?.response?.data?.message || "Save failed");
     } finally {
       setSaving(false);
@@ -88,7 +85,6 @@ export default function AdminProductsPage() {
       await productApi.remove(p._id);
       setItems((prev) => prev.filter((x) => x._id !== p._id));
     } catch (e) {
-      console.log("DELETE ERROR:", e?.response?.data || e?.message);
       setErr(e?.response?.data?.message || "Delete failed");
     } finally {
       setSaving(false);
@@ -104,23 +100,17 @@ export default function AdminProductsPage() {
             <p className="text-sm text-gray-600">Create, edit and delete products.</p>
           </div>
 
-          <div className="flex gap-2 flex-col md:flex-row w-full md:w-auto">
+          <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Search title / slug / category / gender"
-              className="h-10 w-full md:w-[320px] rounded-xl border border-gray-200 px-3 outline-none focus:border-gray-400"
+              placeholder="Search title / slug / category / gender / size required"
+              className="h-10 w-full rounded-xl border border-gray-200 px-3 outline-none focus:border-gray-400 md:w-[380px]"
             />
-            <button
-              onClick={() => load(q)}
-              className="h-10 rounded-xl border border-gray-200 px-4 text-sm font-semibold hover:bg-gray-50"
-            >
+            <button onClick={() => load(q)} className="h-10 rounded-xl border border-gray-200 px-4 text-sm font-semibold hover:bg-gray-50">
               Search
             </button>
-            <button
-              onClick={openCreate}
-              className="h-10 rounded-xl bg-black px-4 text-sm font-semibold text-white hover:opacity-90"
-            >
+            <button onClick={openCreate} className="h-10 rounded-xl bg-black px-4 text-sm font-semibold text-white hover:opacity-90">
               + New
             </button>
           </div>
@@ -133,15 +123,16 @@ export default function AdminProductsPage() {
         )}
       </div>
 
-      <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
         <div className="overflow-x-auto">
-          <table className="min-w-[1100px] w-full text-left">
-            <thead className="bg-gray-50 border-b border-gray-200">
+          <table className="min-w-[1200px] w-full text-left">
+            <thead className="border-b border-gray-200 bg-gray-50">
               <tr className="text-xs uppercase tracking-wide text-gray-600">
-                 <th className="px-4 py-3">Product id</th>
+                <th className="px-4 py-3">Product ID</th>
                 <th className="px-4 py-3">Product</th>
                 <th className="px-4 py-3">Category</th>
                 <th className="px-4 py-3">Gender</th>
+                <th className="px-4 py-3">Size Req.</th>
                 <th className="px-4 py-3">Price</th>
                 <th className="px-4 py-3">Active</th>
                 <th className="px-4 py-3">Actions</th>
@@ -151,30 +142,27 @@ export default function AdminProductsPage() {
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td className="px-4 py-5 text-sm text-gray-600" colSpan={6}>
-                    Loading products…
+                  <td className="px-4 py-5 text-sm text-gray-600" colSpan={8}>
+                    Loading products...
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-5 text-sm text-gray-600" colSpan={6}>
+                  <td className="px-4 py-5 text-sm text-gray-600" colSpan={8}>
                     No products found.
                   </td>
                 </tr>
               ) : (
                 filtered.map((p) => (
                   <tr key={p._id} className="text-sm">
-                     <td className="px-4 py-4 text-gray-700">
-                      {p?._id|| p?._id || "-"}
-                    </td>
+                    <td className="px-4 py-4 text-gray-700">{p?._id || "-"}</td>
+
                     <td className="px-4 py-4">
                       <div className="font-semibold text-gray-900">{p.title}</div>
                       <div className="text-xs text-gray-500">{p.slug}</div>
                     </td>
 
-                    <td className="px-4 py-4 text-gray-700">
-                      {p?.category?.name || p?.category?.slug || "-"}
-                    </td>
+                    <td className="px-4 py-4 text-gray-700">{p?.category?.name || p?.category?.slug || "-"}</td>
 
                     <td className="px-4 py-4">
                       <span className="inline-flex rounded-full bg-gray-100 px-3 py-1 text-xs font-bold text-gray-800">
@@ -182,14 +170,25 @@ export default function AdminProductsPage() {
                       </span>
                     </td>
 
+                    <td className="px-4 py-4">
+                      <span
+                        className={[
+                          "inline-flex rounded-full px-3 py-1 text-xs font-bold",
+                          p?.sizeRequired === false ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800",
+                        ].join(" ")}
+                      >
+                        {p?.sizeRequired === false ? "NO" : "YES"}
+                      </span>
+                    </td>
+
                     <td className="px-4 py-4 text-gray-700">
                       {p.discountPrice != null ? (
                         <div>
-                          <div className="font-semibold">₹{p.discountPrice}</div>
-                          <div className="text-xs text-gray-500 line-through">₹{p.basePrice}</div>
+                          <div className="font-semibold">Rs {p.discountPrice}</div>
+                          <div className="text-xs text-gray-500 line-through">Rs {p.basePrice}</div>
                         </div>
                       ) : (
-                        <div className="font-semibold">₹{p.basePrice}</div>
+                        <div className="font-semibold">Rs {p.basePrice}</div>
                       )}
                     </td>
 

@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { customizeTemplateApi } from "../api/customizeTemplate.api";
 import BulkBanner from "../Components/customizerlisting/BulkBanner";
 
+const ACCESSORY_TYPES = new Set(["cap", "mug", "pen", "accessory"]);
+
 const SORT_OPTIONS = [
   { id: "latest", label: "Newest" },
   { id: "priceLow", label: "Price: Low to High" },
@@ -31,7 +33,8 @@ export default function CustomizeListingPage() {
       setErr("");
       try {
         const res = await customizeTemplateApi.list();
-        setTemplates(res.data?.templates || []);
+        const all = res.data?.templates || [];
+        setTemplates(all.filter((t) => !ACCESSORY_TYPES.has(String(t?.type || ""))));
       } catch (e) {
         setErr(e?.response?.data?.message || e?.message || "Failed to load templates");
       } finally {

@@ -1,6 +1,7 @@
 import { Routes, Route, useLocation } from "react-router-dom";
 import { useState } from "react";
 import CustomizeListingPage from "./Pages/CustomizeListingPage";
+import CustomizeAccessoriesPage from "./Pages/CustomizeAccessoriesPage";
 import CustomizerPage from "./Pages/CustomizerPage";
 import Home from "./Components/Home";
 import MozowhereResponsiveHeader from "./Components/Header/MozowhereResponsiveHeader";
@@ -26,6 +27,9 @@ import AdminBulkOrdersPage from "./Pages/admin/AdminBulkOrdersPage";
 import ShopNowSections from "./Pages/ShopNowSections";
 import ProductDetailMobile from "./Pages/ProductDetailMobile";
 import MyOrdersPage from "./Pages/MyOrdersPage";
+import TrackOrdersPage from "./Pages/TrackOrdersPage";
+import WishlistPage from "./Pages/WishlistPage";
+import AccessoriesItemsPage from "./Pages/AccessoriesItemsPage";
 
 export default function App() {
   const [shopIn, setShopIn] = useState("Men");
@@ -46,17 +50,21 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Home gender={shopIn} />} />
         <Route path="/custom-tshirts" element={<CustomizeListingPage />} />
+        <Route path="/custom-accessories" element={<CustomizeAccessoriesPage />} />
         <Route path="/bulk-order" element={<BulkOrder />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/orders" element={<MyOrdersPage />} />
+        <Route path="/orders/track" element={<TrackOrdersPage />} />
+        <Route path="/wishlist" element={<WishlistPage />} />
         <Route path="/cart" element={<CartPage />} />
         <Route path="/checkout" element={<CheckoutPage />} />
         <Route path="/customizer" element={<CustomizerPage />} />
         <Route path="/customizer/:slug" element={<CustomizerPage />} />
         <Route path="/trending" element={<TrendingCategoriesPage />} />
         <Route path="/shop" element={<ShopNowSections selectedGender={shopIn} />} />
+        <Route path="/accessories" element={<AccessoriesItemsPage />} />
         <Route path="/product/:slug" element={<ProductDetailMobile />} />
 
         <Route element={<AdminRoute />}>

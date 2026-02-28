@@ -62,6 +62,15 @@ function CustomOrderPreview({ item }) {
   const layersAll = Array.isArray(snap?.layers) ? snap.layers : [];
   const count = (s) => layersAll.filter((l) => l?.side === s).length;
   const side = count("front") >= count("back") ? "front" : "back";
+  const finalPreview = snap?.preview?.[side] || snap?.preview?.front || snap?.preview?.back || "";
+  if (finalPreview) {
+    return (
+      <div className="relative h-full w-full overflow-hidden rounded-md bg-gray-100">
+        <img src={finalPreview} alt="custom" className="h-full w-full object-contain" />
+      </div>
+    );
+  }
+
   const image = snap?.preview?.[side] || item?.image || "";
   const layers = layersAll.filter((l) => l?.side === side);
   const printW = 280;

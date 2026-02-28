@@ -22,7 +22,7 @@ export default function MainBanner() {
                         <h1 className="mt-5 text-[28px] sm:text-5xl lg:text-6xl font-extrabold leading-tight tracking-tight">
                             Design Your Own
                             <br />
-                            <span className="text-gray-900">T-Shirts & DTF</span>
+                            <span className="text-gray-900">T-Shirts & Accessories</span>
                         </h1>
 
                         <p className="mt-4 text-sm sm:text-base text-gray-600 max-w-xl mx-auto">

@@ -42,7 +42,7 @@ const getMyDesign = async (req, res) => {
 };
 
 const updateDesign = async (req, res) => {
-  const { layers, selected } = req.body;
+  const { layers, selected, preview } = req.body;
 
   const d = await CustomDesign.findOne({ _id: req.params.id, user: req.user._id });
   if (!d) return res.status(404).json({ message: "Design not found" });
@@ -50,6 +50,9 @@ const updateDesign = async (req, res) => {
 
   if (Array.isArray(layers)) d.layers = layers;
   if (selected) d.selected = { ...d.selected, ...selected };
+  if (preview && typeof preview === "object") {
+    d.preview = { ...(d.preview || {}), ...preview };
+  }
 
   await d.save();
   res.json({ design: d });

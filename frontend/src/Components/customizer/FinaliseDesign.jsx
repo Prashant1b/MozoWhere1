@@ -87,6 +87,7 @@ export default function FinaliseDesign({
   selectedColor,
   selectedSize,
   selectedFabric,
+  showFabric = true,
   designBySide,
   setDesignBySide,
   onNext,
@@ -386,8 +387,13 @@ export default function FinaliseDesign({
     <div className="mx-auto max-w-7xl px-3 py-4 sm:px-4 sm:py-8">
       <div className="rounded-2xl border border-slate-200 bg-white p-3 text-sm text-slate-600 sm:p-4">
         Color: <span className="font-semibold text-slate-900">{selectedColor?.name || "-"}</span> |
-        Size: <span className="font-semibold text-slate-900">{selectedSize?.id || "-"}</span> |
-        Fabric: <span className="font-semibold text-slate-900">{selectedFabric?.name || "Standard"}</span>
+        Size: <span className="font-semibold text-slate-900">{selectedSize?.id || "N/A"}</span>
+        {showFabric ? (
+          <>
+            {" "}|
+            {" "}Fabric: <span className="font-semibold text-slate-900">{selectedFabric?.name || "Standard"}</span>
+          </>
+        ) : null}
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">

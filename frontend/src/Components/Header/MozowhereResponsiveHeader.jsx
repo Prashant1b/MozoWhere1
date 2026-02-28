@@ -14,7 +14,6 @@ export default function MozowhereResponsiveHeader({ mobileShopIn, setMobileShopI
       { label: "CUSTOMIZE", to: "/custom-tshirts" },
       { label: "CUSTOMIZE ACCESSORIES", to: "/custom-accessories" },
       { label: "BULK ORDER", to: "/bulk-order" },
-      { label: "DESIGN WITH PRINTS", to: "/customizer" },
       { label: "ACCESSORIES", to: "/accessories" },
     ],
     []
@@ -36,6 +35,7 @@ export default function MozowhereResponsiveHeader({ mobileShopIn, setMobileShopI
         setMobileMenuOpen={setMobileMenuOpen}
         mobileShopIn={mobileShopIn}
         setMobileShopIn={setMobileShopIn}
+        menuLinks={menuLinks}
         user={user}
         booting={booting}
         onLogout={logout}

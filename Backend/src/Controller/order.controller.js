@@ -3,13 +3,22 @@ const Cart = require("../models/CartModel");
 const Order = require("../models/OrderModel");
 const ProductVariant = require("../models/ProductVariant");
 const CustomDesign = require("../models/CustomDesignModel");
+const Coupon = require("../models/CouponModel");
 
 const createOrderFromCart = async (req, res) => {
   const session = await mongoose.startSession();
   try {
     const userId = req.user._id;
-    const { shippingAddress, paymentMethod } = req.body;
+    const { shippingAddress, paymentMethod, couponCode } = req.body;
     const normalizedPaymentMethod = paymentMethod === "cod" ? "cod" : "online";
+    const phone = String(shippingAddress?.phone || "").trim();
+    const pincode = String(shippingAddress?.pincode || "").trim();
+    if (!/^\d{10}$/.test(phone)) {
+      return res.status(400).json({ message: "Valid 10-digit mobile number is required" });
+    }
+    if (!/^\d{6}$/.test(pincode)) {
+      return res.status(400).json({ message: "Valid 6-digit pincode is required" });
+    }
 
     session.startTransaction();
 
@@ -39,7 +48,7 @@ const createOrderFromCart = async (req, res) => {
     const dmap = new Map(customDesigns.map((d) => [d._id.toString(), d]));
 
     const orderItems = [];
-    let totalAmount = 0;
+    let subtotalAmount = 0;
 
     for (const item of cart.items) {
       const qty = Math.max(1, Number(item.quantity) || 1);
@@ -65,7 +74,7 @@ const createOrderFromCart = async (req, res) => {
 
         const unitPrice = Number(item.priceAtAdd || design.priceSnapshot?.total || design.template?.basePrice || 0);
         const lineTotal = unitPrice * qty;
-        totalAmount += lineTotal;
+        subtotalAmount += lineTotal;
 
         orderItems.push({
           type: "custom",
@@ -108,7 +117,7 @@ const createOrderFromCart = async (req, res) => {
 
       const unitPrice = Number(item.priceAtAdd);
       const lineTotal = unitPrice * qty;
-      totalAmount += lineTotal;
+      subtotalAmount += lineTotal;
 
       orderItems.push({
         type: "product",
@@ -145,11 +154,62 @@ const createOrderFromCart = async (req, res) => {
       );
     }
 
+    let appliedCouponCode = "";
+    let discountAmount = 0;
+    if (couponCode && String(couponCode).trim()) {
+      const normalizedCode = String(couponCode).trim().toUpperCase();
+      const coupon = await Coupon.findOne({ code: normalizedCode, isActive: true }).session(session);
+      if (!coupon) {
+        await session.abortTransaction();
+        return res.status(400).json({ message: "Invalid coupon" });
+      }
+      if (coupon.expiryDate < new Date()) {
+        await session.abortTransaction();
+        return res.status(400).json({ message: "Coupon expired" });
+      }
+      if (subtotalAmount < Number(coupon.minCartAmount || 0)) {
+        await session.abortTransaction();
+        return res.status(400).json({ message: `Minimum cart amount: ${coupon.minCartAmount}` });
+      }
+
+      const idx = (coupon.usageByUser || []).findIndex((u) => String(u?.user) === String(userId));
+      const usedCount = idx >= 0 ? Number(coupon.usageByUser[idx]?.count || 0) : 0;
+      const userLimit = coupon.perUserLimit == null ? 1 : Math.max(0, Number(coupon.perUserLimit || 0));
+      if (userLimit > 0 && usedCount >= userLimit) {
+        await session.abortTransaction();
+        return res.status(400).json({ message: "Coupon usage limit reached for this user" });
+      }
+
+      if (coupon.discountType === "flat") {
+        discountAmount = Number(coupon.value || 0);
+      } else {
+        discountAmount = Math.round((subtotalAmount * Number(coupon.value || 0)) / 100);
+        if (coupon.maxDiscount != null) {
+          discountAmount = Math.min(discountAmount, Number(coupon.maxDiscount || 0));
+        }
+      }
+      discountAmount = Math.max(0, Math.min(discountAmount, subtotalAmount));
+      appliedCouponCode = coupon.code;
+
+      if (idx >= 0) {
+        coupon.usageByUser[idx].count = usedCount + 1;
+        coupon.usageByUser[idx].lastUsedAt = new Date();
+      } else {
+        coupon.usageByUser.push({ user: userId, count: 1, lastUsedAt: new Date() });
+      }
+      await coupon.save({ session });
+    }
+
+    const totalAmount = Math.max(0, subtotalAmount - discountAmount);
+
     const order = await Order.create(
       [
         {
           user: userId,
           items: orderItems,
+          subtotalAmount,
+          discountAmount,
+          couponCode: appliedCouponCode,
           totalAmount,
           shippingAddress: shippingAddress || {},
           orderStatus: "pending",

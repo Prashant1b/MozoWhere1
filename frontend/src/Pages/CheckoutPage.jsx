@@ -20,6 +20,7 @@ export default function CheckoutPage() {
   const location = useLocation();
   const [subtotal, setSubtotal] = useState(Number(location.state?.subtotal || 0));
   const [payable, setPayable] = useState(Number(location.state?.payable || location.state?.subtotal || 0));
+  const [couponCode] = useState(String(location.state?.couponCode || ""));
 
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
@@ -35,10 +36,12 @@ export default function CheckoutPage() {
   });
 
   const canSubmit = useMemo(() => {
+    const phoneOk = /^\d{10}$/.test(String(address.phone || "").trim());
+    const pinOk = /^\d{6}$/.test(String(address.pincode || "").trim());
     return (
       address.name.trim() &&
-      address.phone.trim() &&
-      address.pincode.trim() &&
+      phoneOk &&
+      pinOk &&
       address.addressLine.trim() &&
       address.city.trim() &&
       address.state.trim()
@@ -118,11 +121,19 @@ export default function CheckoutPage() {
   };
 
   const onPlaceOrder = async () => {
+    const phone = String(address.phone || "").trim();
+    const pin = String(address.pincode || "").trim();
+    if (!/^\d{10}$/.test(phone)) return setMsg("Please enter valid 10-digit mobile number");
+    if (!/^\d{6}$/.test(pin)) return setMsg("Please enter valid 6-digit pincode");
     if (!canSubmit) return setMsg("Please fill complete address");
     setMsg("");
     setBusy(true);
     try {
-      const created = await ordersApi.createFromCart(address, paymentMode === "cod" ? "cod" : "online");
+      const created = await ordersApi.createFromCart(
+        address,
+        paymentMode === "cod" ? "cod" : "online",
+        couponCode || undefined
+      );
       const order = created.data?.order;
       if (!order?._id) throw new Error("Order creation failed");
 
@@ -151,8 +162,22 @@ export default function CheckoutPage() {
           <h2 className="text-lg font-bold text-gray-900">Shipping Address</h2>
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <input className="h-11 rounded-xl border border-gray-200 px-3" placeholder="Full name" value={address.name} onChange={(e) => setField("name", e.target.value)} />
-            <input className="h-11 rounded-xl border border-gray-200 px-3" placeholder="Phone" value={address.phone} onChange={(e) => setField("phone", e.target.value)} />
-            <input className="h-11 rounded-xl border border-gray-200 px-3" placeholder="Pincode" value={address.pincode} onChange={(e) => setField("pincode", e.target.value)} />
+            <input
+              className="h-11 rounded-xl border border-gray-200 px-3"
+              placeholder="Phone (10 digits)"
+              value={address.phone}
+              inputMode="numeric"
+              maxLength={10}
+              onChange={(e) => setField("phone", e.target.value.replace(/\D/g, "").slice(0, 10))}
+            />
+            <input
+              className="h-11 rounded-xl border border-gray-200 px-3"
+              placeholder="Pincode (6 digits)"
+              value={address.pincode}
+              inputMode="numeric"
+              maxLength={6}
+              onChange={(e) => setField("pincode", e.target.value.replace(/\D/g, "").slice(0, 6))}
+            />
             <input className="h-11 rounded-xl border border-gray-200 px-3" placeholder="City" value={address.city} onChange={(e) => setField("city", e.target.value)} />
             <input className="h-11 rounded-xl border border-gray-200 px-3 sm:col-span-2" placeholder="Address line" value={address.addressLine} onChange={(e) => setField("addressLine", e.target.value)} />
             <input className="h-11 rounded-xl border border-gray-200 px-3 sm:col-span-2" placeholder="State" value={address.state} onChange={(e) => setField("state", e.target.value)} />

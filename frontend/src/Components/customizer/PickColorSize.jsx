@@ -18,8 +18,9 @@ export default function PickColorSize({
 }) {
   const canNext = useMemo(() => {
     const fabricOk = !fabrics?.length || Boolean(selectedFabric?._id || selectedFabric?.id || selectedFabric?.name);
-    return Boolean(selectedColor) && Boolean(selectedSize?.id) && fabricOk;
-  }, [selectedColor, selectedSize, fabrics, selectedFabric]);
+    const sizeOk = !sizes?.length || Boolean(selectedSize?.id);
+    return Boolean(selectedColor) && sizeOk && fabricOk;
+  }, [selectedColor, selectedSize, sizes, fabrics, selectedFabric]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
@@ -78,32 +79,38 @@ export default function PickColorSize({
 
             <div>
               <h3 className="text-sm font-extrabold uppercase tracking-wide text-slate-700">Size</h3>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {sizes.map((s) => {
-                  const disabled = Number.isFinite(s.stock) && s.stock <= 0;
-                  const active = selectedSize?.id === s.id;
-                  return (
-                    <button
-                      key={s.id}
-                      disabled={disabled}
-                      onClick={() => {
-                        if (disabled) return;
-                        setSelectedSize((prev) => (prev?.id === s.id ? null : s));
-                      }}
-                      className={[
-                        "min-w-14 rounded-lg border px-4 py-2 text-sm font-bold",
-                        disabled
-                          ? "cursor-not-allowed border-slate-200 text-slate-300"
-                          : active
-                          ? "border-slate-900 bg-slate-900 text-white"
-                          : "border-slate-300 text-slate-800 hover:bg-slate-50",
-                      ].join(" ")}
-                    >
-                      {s.id}
-                    </button>
-                  );
-                })}
-              </div>
+              {!sizes?.length ? (
+                <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+                  Size is not required for this product.
+                </div>
+              ) : (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {sizes.map((s) => {
+                    const disabled = Number.isFinite(s.stock) && s.stock <= 0;
+                    const active = selectedSize?.id === s.id;
+                    return (
+                      <button
+                        key={s.id}
+                        disabled={disabled}
+                        onClick={() => {
+                          if (disabled) return;
+                          setSelectedSize((prev) => (prev?.id === s.id ? null : s));
+                        }}
+                        className={[
+                          "min-w-14 rounded-lg border px-4 py-2 text-sm font-bold",
+                          disabled
+                            ? "cursor-not-allowed border-slate-200 text-slate-300"
+                            : active
+                            ? "border-slate-900 bg-slate-900 text-white"
+                            : "border-slate-300 text-slate-800 hover:bg-slate-50",
+                        ].join(" ")}
+                      >
+                        {s.id}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {!!fabrics?.length && (
@@ -139,7 +146,7 @@ export default function PickColorSize({
           <div className="mt-8 flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
             <div className="text-sm text-slate-600">Selected</div>
             <div className="text-sm font-bold text-slate-900">
-              {selectedColor?.name || "-"} | {selectedSize?.id || "-"} | {selectedFabric?.name || "-"}
+              {selectedColor?.name || "-"} | {selectedSize?.id || "N/A"} | {selectedFabric?.name || "-"}
             </div>
           </div>
 

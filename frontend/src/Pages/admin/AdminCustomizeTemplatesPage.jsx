@@ -116,7 +116,9 @@ export default function AdminCustomizeTemplatesPage() {
               <option value="">All Types</option>
               <option value="tshirt">tshirt</option>
               <option value="hoodie">hoodie</option>
-              <option value="sweatshirt">sweatshirt</option>
+              <option value="cap">cap</option>
+              <option value="mug">mug</option>
+              <option value="pen">pen</option>
               <option value="accessory">accessory</option>
             </select>
 

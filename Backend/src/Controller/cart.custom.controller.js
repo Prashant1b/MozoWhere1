@@ -1,6 +1,17 @@
 const Cart = require("../models/CartModel");
 const CustomDesign = require("../models/CustomDesignModel");
 
+const populateCartQuery = (userId) =>
+  Cart.findOne({ user: userId })
+    .populate({
+      path: "items.variant",
+      populate: { path: "product" },
+    })
+    .populate({
+      path: "items.customDesign",
+      populate: [{ path: "template" }, { path: "selected.fabric" }],
+    });
+
 const recalc = async (cart) => {
   cart.totalAmount = cart.items.reduce((s, it) => s + it.priceAtAdd * it.quantity, 0);
   await cart.save();
@@ -28,7 +39,8 @@ const addCustomToCart = async (req, res) => {
     });
 
     await recalc(cart);
-    return res.json({ cart });
+    const freshCart = await populateCartQuery(userId);
+    return res.json({ cart: freshCart || { user: userId, items: [], totalAmount: 0 } });
   } catch (err) {
     return res.status(500).json({ message: err.message });
   }

@@ -9,8 +9,9 @@ const productSchema = new mongoose.Schema(
      gender:{
       type:String,
       required:true,
-      enum:["Male","Female"]
+      enum:["Male","Female","All"]
      },
+    sizeRequired: { type: Boolean, default: true },
     images: [{ type: String }],
     tags: [{ type: String }],
 

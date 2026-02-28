@@ -56,6 +56,16 @@ function itemMeta(it) {
 function CustomCartPreview({ design }) {
   const countBySide = (s) => (design?.layers || []).filter((l) => l?.side === s).length;
   const side = countBySide("front") >= countBySide("back") ? "front" : "back";
+  const finalPreview =
+    design?.preview?.[side] || design?.preview?.front || design?.preview?.back || "";
+  if (finalPreview) {
+    return (
+      <div className="relative h-full w-full overflow-hidden rounded-md bg-gray-100">
+        <img src={finalPreview} alt="Custom preview" className="h-full w-full object-contain" />
+      </div>
+    );
+  }
+
   const image = design?.template?.mockups?.[side] || design?.template?.mockups?.back || "";
   const layers = (design?.layers || []).filter((l) => l?.side === side);
   const tint = colorToHex(design?.selected?.color);
@@ -155,7 +165,12 @@ export default function CartPage() {
     try {
       const res = await couponApi.apply(code.trim());
       setCouponResult(res.data || null);
-      setCouponMsg(`Coupon applied: ${res.data?.coupon}`);
+      const rem = res.data?.remainingUses;
+      setCouponMsg(
+        rem == null
+          ? `Coupon applied: ${res.data?.coupon}`
+          : `Coupon applied: ${res.data?.coupon} | Remaining uses: ${rem}`
+      );
     } catch (e) {
       setCouponResult(null);
       setCouponMsg(e?.response?.data?.message || e?.message || "Coupon apply failed");
@@ -290,7 +305,11 @@ export default function CartPage() {
             </div>
 
             <button
-              onClick={() => nav("/checkout", { state: { subtotal, payable } })}
+              onClick={() =>
+                nav("/checkout", {
+                  state: { subtotal, payable, couponCode: couponResult?.coupon || "" },
+                })
+              }
               className="mt-5 h-11 w-full rounded-lg bg-[#3BA3A3] text-sm font-bold text-white hover:opacity-95"
             >
               Proceed to Checkout

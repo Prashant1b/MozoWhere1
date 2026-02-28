@@ -19,6 +19,8 @@ export default function AdminCouponsPage() {
   const [value, setValue] = useState("");
   const [minCartAmount, setMinCartAmount] = useState("");
   const [maxDiscount, setMaxDiscount] = useState("");
+  const [allowMultipleUse, setAllowMultipleUse] = useState(false);
+  const [perUserLimit, setPerUserLimit] = useState("2");
   const [expiryDate, setExpiryDate] = useState("");
   const [isActive, setIsActive] = useState(true);
 
@@ -45,6 +47,8 @@ export default function AdminCouponsPage() {
     setValue("");
     setMinCartAmount("");
     setMaxDiscount("");
+    setAllowMultipleUse(false);
+    setPerUserLimit("2");
     setExpiryDate("");
     setIsActive(true);
   };
@@ -59,6 +63,7 @@ export default function AdminCouponsPage() {
         discountType,
         value: Number(value),
         minCartAmount: minCartAmount === "" ? 0 : Number(minCartAmount),
+        perUserLimit: allowMultipleUse ? Math.max(2, Number(perUserLimit) || 2) : 1,
         expiryDate,
         isActive,
       };
@@ -158,6 +163,25 @@ export default function AdminCouponsPage() {
           <label className="flex h-11 items-center gap-2 rounded-xl border border-gray-200 px-3">
             <input
               type="checkbox"
+              checked={allowMultipleUse}
+              onChange={(e) => setAllowMultipleUse(e.target.checked)}
+            />
+            <span className="text-sm font-medium text-gray-700">Allow multiple uses per user</span>
+          </label>
+
+          <input
+            type="number"
+            min="2"
+            value={perUserLimit}
+            onChange={(e) => setPerUserLimit(e.target.value)}
+            disabled={!allowMultipleUse}
+            placeholder="Per-user limit (e.g. 3)"
+            className="h-11 rounded-xl border border-gray-200 px-3 outline-none focus:border-gray-400 disabled:bg-gray-100"
+          />
+
+          <label className="flex h-11 items-center gap-2 rounded-xl border border-gray-200 px-3">
+            <input
+              type="checkbox"
               checked={isActive}
               onChange={(e) => setIsActive(e.target.checked)}
             />
@@ -182,6 +206,7 @@ export default function AdminCouponsPage() {
               <th className="px-4 py-3">Value</th>
               <th className="px-4 py-3">Min Cart</th>
               <th className="px-4 py-3">Expiry</th>
+              <th className="px-4 py-3">Per User</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Actions</th>
             </tr>
@@ -190,13 +215,13 @@ export default function AdminCouponsPage() {
           <tbody className="divide-y divide-gray-100">
             {loading ? (
               <tr>
-                <td className="px-4 py-5 text-sm text-gray-600" colSpan={7}>
+                <td className="px-4 py-5 text-sm text-gray-600" colSpan={8}>
                   Loading coupons...
                 </td>
               </tr>
             ) : coupons.length === 0 ? (
               <tr>
-                <td className="px-4 py-5 text-sm text-gray-600" colSpan={7}>
+                <td className="px-4 py-5 text-sm text-gray-600" colSpan={8}>
                   No coupons found.
                 </td>
               </tr>
@@ -210,6 +235,11 @@ export default function AdminCouponsPage() {
                   </td>
                   <td className="px-4 py-4 text-gray-700">Rs {c.minCartAmount || 0}</td>
                   <td className="px-4 py-4 text-gray-700">{toInputDate(c.expiryDate) || "-"}</td>
+                  <td className="px-4 py-4 text-gray-700">
+                    {Number(c?.perUserLimit ?? 1) === 0
+                      ? "Unlimited"
+                      : `${Number(c?.perUserLimit ?? 1)} time(s)`}
+                  </td>
                   <td className="px-4 py-4">
                     <span
                       className={`rounded-full px-2 py-1 text-xs font-semibold ${

@@ -1,225 +1,155 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { HERO_SLIDES } from "../data/scrollcategory";
+import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { ArrowRight, Boxes, Palette, ShoppingBag, Sparkles } from "lucide-react";
+import { customizeTemplateApi } from "../api/customizeTemplate.api";
+import { productApi } from "../api/product.api";
 
-function usePerView() {
-  const [perView, setPerView] = useState(() =>
-    typeof window === "undefined" ? 2 : window.innerWidth < 768 ? 1 : 2
-  );
+const ACCESSORY_TYPES = new Set(["cap", "mug", "pen", "accessory"]);
+
+const CARD_THEME = {
+  shop: "from-slate-950 via-slate-900 to-slate-800 text-white",
+  custom: "from-cyan-100 via-sky-50 to-white text-slate-900",
+  accessories: "from-amber-100 via-orange-50 to-white text-slate-900",
+  bulk: "from-emerald-100 via-teal-50 to-white text-slate-900",
+};
+
+export default function HomeHeroCarousel() {
+  const [loading, setLoading] = useState(true);
+  const [counts, setCounts] = useState({
+    products: 0,
+    custom: 0,
+    accessories: 0,
+  });
 
   useEffect(() => {
-    const onResize = () => setPerView(window.innerWidth < 768 ? 1 : 2);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
+    let mounted = true;
 
-  return perView;
-}
+    const load = async () => {
+      setLoading(true);
+      try {
+        const [productsRes, templatesRes] = await Promise.all([
+          productApi.list({ page: 1, limit: 1, active: true }),
+          customizeTemplateApi.list(),
+        ]);
 
-export default function HomeHeroCarousel({
-  speedPxPerSec = 90, // ✅ smooth speed (change as you want)
-  pauseOnHover = true,
-}) {
-  const perView = usePerView();
-  const slides = HERO_SLIDES;
+        if (!mounted) return;
 
-  // ✅ clone for infinite loop: [last..] + real + [first..]
-  const loopSlides = useMemo(() => {
-    const headClones = slides.slice(-perView);
-    const tailClones = slides.slice(0, perView);
-    return [...headClones, ...slides, ...tailClones];
-  }, [slides, perView]);
+        const templates = templatesRes?.data?.templates || [];
+        const activeTemplates = templates.filter((t) => t?.isActive !== false);
+        const accessoryCount = activeTemplates.filter((t) =>
+          ACCESSORY_TYPES.has(String(t?.type || "").toLowerCase())
+        ).length;
 
-  const cloneOffset = perView;
-
-  // We control movement using pixel translate, not index-steps
-  const [containerW, setContainerW] = useState(0);
-  const viewportRef = useRef(null);
-
-  // pxTranslate starts at cloneOffset * cardWidth
-  const [pxTranslate, setPxTranslate] = useState(0);
-
-  const hoverRef = useRef(false);
-  const rafRef = useRef(null);
-  const lastTsRef = useRef(0);
-
-  // Measure viewport width
-  useEffect(() => {
-    const el = viewportRef.current;
-    if (!el) return;
-
-    const ro = new ResizeObserver(() => {
-      setContainerW(el.getBoundingClientRect().width);
-    });
-    ro.observe(el);
-    setContainerW(el.getBoundingClientRect().width);
-
-    return () => ro.disconnect();
-  }, []);
-
-  // Derived widths
-  const cardW = containerW ? containerW / perView : 0;
-  const oneSlideShift = cardW; // moving by one slide = card width
-  const startPx = cloneOffset * oneSlideShift; // first real slide position
-  const endPx = (cloneOffset + slides.length) * oneSlideShift; // end boundary after last real
-
-  // Reset when responsive changes / container changes
-  useEffect(() => {
-    if (!cardW) return;
-    setPxTranslate(startPx);
-    lastTsRef.current = 0;
-  }, [cardW, startPx]);
-
-  // ✅ Continuous auto-scroll loop (requestAnimationFrame)
-  useEffect(() => {
-    if (!cardW) return;
-
-    const tick = (ts) => {
-      if (!lastTsRef.current) lastTsRef.current = ts;
-      const dt = (ts - lastTsRef.current) / 1000; // seconds
-      lastTsRef.current = ts;
-
-      const paused = pauseOnHover && hoverRef.current;
-      if (!paused) {
-        setPxTranslate((prev) => {
-          const next = prev + speedPxPerSec * dt;
-
-          // ✅ if we crossed end boundary -> jump back by slides.length * cardW
-          if (next >= endPx) {
-            return next - slides.length * oneSlideShift;
-          }
-          return next;
+        setCounts({
+          products: Number(productsRes?.data?.total || 0),
+          accessories: accessoryCount,
+          custom: activeTemplates.length - accessoryCount,
         });
+      } catch (err) {
+        if (!mounted) return;
+        setCounts({ products: 0, custom: 0, accessories: 0 });
+      } finally {
+        if (mounted) setLoading(false);
       }
-
-      rafRef.current = requestAnimationFrame(tick);
     };
 
-    rafRef.current = requestAnimationFrame(tick);
-
+    load();
     return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      mounted = false;
     };
-  }, [cardW, endPx, oneSlideShift, slides.length, speedPxPerSec, pauseOnHover]);
+  }, []);
 
-  // Translate in %
-  const translatePct = cardW ? (pxTranslate / containerW) * 100 : 0;
+  const cards = useMemo(
+    () => [
+      {
+        id: "shop",
+        title: "Shop Now",
+        subtitle: "Ready products for instant order",
+        countLabel: `${counts.products} items`,
+        to: "/shop",
+        icon: ShoppingBag,
+        cta: "Browse products",
+      },
+      {
+        id: "custom",
+        title: "Customization",
+        subtitle: "Design T-shirts and hoodies",
+        countLabel: `${counts.custom} templates`,
+        to: "/custom-tshirts",
+        icon: Sparkles,
+        cta: "Start designing",
+      },
+      {
+        id: "accessories",
+        title: "Customize Accessories",
+        subtitle: "Mugs, caps, pen and more",
+        countLabel: `${counts.accessories} templates`,
+        to: "/custom-accessories",
+        icon: Palette,
+        cta: "Create accessory",
+      },
+      {
+        id: "bulk",
+        title: "Bulk Orders",
+        subtitle: "Corporate and event quantity pricing",
+        countLabel: "Get custom quote",
+        to: "/bulk-order",
+        icon: Boxes,
+        cta: "Request quote",
+      },
+    ],
+    [counts]
+  );
 
   return (
     <section className="w-full bg-white">
-      <div className="mx-auto max-w-7xl px-4 py-8">
-        {/* viewport */}
-        <div
-          ref={viewportRef}
-          className="relative overflow-hidden"
-          onMouseEnter={() => {
-            hoverRef.current = true;
-          }}
-          onMouseLeave={() => {
-            hoverRef.current = false;
-          }}
-        >
-          {/* track */}
-          <div
-            className="flex gap-6 will-change-transform"
-            style={{
-              transform: `translateX(-${translatePct}%)`,
-            }}
-          >
-            {loopSlides.map((s, i) => (
-              <SlideCard key={`${s.id}-${i}`} slide={s} perView={perView} />
-            ))}
+      <div className="mx-auto max-w-7xl px-4 pb-6 pt-5 md:pb-8">
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-black text-slate-900 md:text-2xl">Explore Services</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Shop instantly or launch custom orders in a few clicks.
+            </p>
           </div>
+          {loading ? (
+            <span className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+              Updating data...
+            </span>
+          ) : null}
         </div>
 
-        {/* dots (optional: shows approx position) */}
-        <div className="mt-4 flex items-center justify-center gap-2">
-          {Array.from({ length: Math.ceil(slides.length / perView) }).map(
-            (_, p) => (
-              <span
-                key={p}
-                className="h-2.5 w-2.5 rounded-full bg-slate-300"
-              />
-            )
-          )}
+        <div className="grid grid-flow-col auto-cols-[85%] gap-4 overflow-x-auto pb-2 [scrollbar-width:none] sm:auto-cols-[65%] lg:grid-flow-row lg:grid-cols-4 lg:overflow-visible [&::-webkit-scrollbar]:hidden">
+          {cards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <Link
+                key={card.id}
+                to={card.to}
+                className={`group relative min-h-[190px] overflow-hidden rounded-3xl bg-gradient-to-br p-5 shadow-[0_12px_32px_rgba(2,6,23,0.08)] ring-1 ring-black/5 transition hover:-translate-y-1 hover:shadow-[0_18px_38px_rgba(2,6,23,0.14)] ${CARD_THEME[card.id]}`}
+              >
+                <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-white/20 blur-2xl" />
+                <div className="relative flex h-full flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="inline-flex items-center gap-2 rounded-full bg-white/70 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-900">
+                        <Icon className="h-3.5 w-3.5" />
+                        Service
+                      </span>
+                      <span className="text-xs font-bold opacity-85">{card.countLabel}</span>
+                    </div>
+                    <h3 className="mt-3 text-2xl font-black leading-tight">{card.title}</h3>
+                    <p className="mt-2 text-sm opacity-90">{card.subtitle}</p>
+                  </div>
+                  <div className="mt-6 inline-flex items-center gap-2 text-sm font-bold">
+                    {card.cta}
+                    <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       </div>
     </section>
   );
 }
-
-function SlideCard({ slide, perView }) {
-  const GAP_PX = 24; // gap-6 = 24px
-
-  const cardBasis =
-    perView === 1
-      ? "100%"
-      : `calc((100% - ${GAP_PX * (perView - 1)}px) / ${perView})`;
-
-  const fit = slide.fit || "cover"; // default cover for banners
-
-  return (
-    <Link
-       to={`http://localhost:5173/${slide.link}`}
-      className={[
-        "relative shrink-0 overflow-hidden rounded-3xl",
-        "bg-[#efefef] shadow-[0_14px_40px_rgba(15,23,42,0.12)]",
-      ].join(" ")}
-      style={{
-        flexBasis: cardBasis,
-        minWidth: cardBasis,
-      }}
-    >
-      {/* ✅ Image wrapper: fills full area */}
-      <div className="h-[320px] md:h-[420px] w-full bg-[#efefef]">
-        <img
-          src={slide.image}
-          alt={slide.title || slide.scriptTitle || "Promo"}
-          className={[
-            "h-full w-full",
-            fit === "contain" ? "object-contain p-4" : "object-cover",
-          ].join(" ")}
-          loading="lazy"
-        />
-      </div>
-
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-white/20 via-transparent to-white/10" />
-
-      {slide.variant === "leftOverlay" ? (
-        <>
-          <div className="absolute left-8 top-8 flex items-center gap-2 text-slate-800">
-            <span className="text-sm tracking-[0.22em] opacity-80">
-              {slide.topTag?.split(" ")[0] || "ALL"}
-            </span>
-            <span className="text-sm font-semibold tracking-[0.22em]">
-              {slide.topTag?.split(" ")[1] || "NEW"}
-            </span>
-          </div>
-
-          <div className="absolute bottom-8 left-8">
-            <div className="text-white drop-shadow-[0_6px_18px_rgba(0,0,0,0.35)]">
-              <div className="font-[cursive] text-5xl leading-none md:text-6xl">
-                {slide.scriptTitle}
-              </div>
-              <div className="mt-2 text-sm tracking-[0.5em]">
-                {slide.subTitle}
-              </div>
-            </div>
-          </div>
-        </>
-      ) : (
-        <div className="absolute bottom-8 left-0 right-0 px-6 text-center">
-          <div className="text-slate-800">
-            <div className="text-3xl font-semibold md:text-4xl">
-              {slide.title}
-            </div>
-            <div className="mt-1 text-lg font-extrabold tracking-wide">
-              {slide.subtitle}
-            </div>
-          </div>
-        </div>
-      )}
-    </Link>
-  );
-}
-

@@ -4,7 +4,15 @@ const slugify = require("../utils/slugify");
 const mongoose = require('mongoose');
 const ProductVariant = require("../models/ProductVariant");
 
-const ALLOWED_GENDERS = ["Male", "Female"];
+const ALLOWED_GENDERS = ["Male", "Female", "All"];
+const parseBool = (v, fallback = undefined) => {
+    if (v === undefined || v === null || v === "") return fallback;
+    if (typeof v === "boolean") return v;
+    const s = String(v).toLowerCase();
+    if (s === "true" || s === "1") return true;
+    if (s === "false" || s === "0") return false;
+    return fallback;
+};
 const resolveCategoryId = async (category) => {
     if (!category) return null;
     if (mongoose.Types.ObjectId.isValid(category)) return category;
@@ -21,13 +29,13 @@ const resolveCategoryId = async (category) => {
 
 
 const createProduct = async (req, res) => {
-    const { title, slug, description, category,gender, images, tags, basePrice, discountPrice, isActive } =
+    const { title, slug, description, category,gender, sizeRequired, images, tags, basePrice, discountPrice, isActive } =
         req.body;
 
     if (!title?.trim()) return res.status(400).json({ message: "Title is required" });
     if (!category) return res.status(400).json({ message: "Category is required" });
     if (!gender || !ALLOWED_GENDERS.includes(gender)) {
-      return res.status(400).json({ message: "Gender is required (Male/Female)" });
+      return res.status(400).json({ message: "Gender is required (Male/Female/All)" });
     }
     if (basePrice == null) return res.status(400).json({ message: "Base price is required" });
     const categoryId = await resolveCategoryId(req.body.category);
@@ -47,6 +55,7 @@ const createProduct = async (req, res) => {
         description: description ?? "",
         category: categoryId,
          gender,
+        sizeRequired: parseBool(sizeRequired, true),
         images: Array.isArray(images) ? images : [],
         tags: Array.isArray(tags) ? tags : [],
         basePrice: Number(basePrice),
@@ -97,9 +106,14 @@ const listProducts = async (req, res) => {
      if (gender?.trim()) {
       const g = gender.trim();
       if (!ALLOWED_GENDERS.includes(g)) {
-        return res.status(400).json({ message: "Invalid gender. Use Male or Female" });
+        return res.status(400).json({ message: "Invalid gender. Use Male, Female or All" });
       }
-      filter.gender = g;
+      // "All" products should appear in both Male/Female views.
+      if (g === "All") {
+        filter.gender = "All";
+      } else {
+        filter.gender = { $in: [g, "All"] };
+      }
     }
 
     if (minPrice != null || maxPrice != null) {
@@ -131,7 +145,8 @@ const updateProduct = async (req, res) => {
         slug,
         description,
         category, 
-         gender, 
+         gender,
+        sizeRequired,
         images,
         tags,
         basePrice,
@@ -157,10 +172,11 @@ const updateProduct = async (req, res) => {
 
      if (gender != null) {
       if (!ALLOWED_GENDERS.includes(gender)) {
-        return res.status(400).json({ message: "Invalid gender. Use Male or Female" });
+        return res.status(400).json({ message: "Invalid gender. Use Male, Female or All" });
       }
       product.gender = gender;
     }
+    if (sizeRequired != null) product.sizeRequired = parseBool(sizeRequired, product.sizeRequired);
 
     if (Array.isArray(images)) product.images = images;
     if (Array.isArray(tags)) product.tags = tags;

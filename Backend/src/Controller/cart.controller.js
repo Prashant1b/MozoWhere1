@@ -1,6 +1,17 @@
 const Cart = require("../models/CartModel");
 const ProductVariant = require("../models/ProductVariant");
 
+const populateCartQuery = (userId) =>
+  Cart.findOne({ user: userId })
+    .populate({
+      path: "items.variant",
+      populate: { path: "product" },
+    })
+    .populate({
+      path: "items.customDesign",
+      populate: [{ path: "template" }, { path: "selected.fabric" }],
+    });
+
 // helper to compute current unit price
 const getVariantUnitPrice = async (variantId) => {
   const variant = await ProductVariant.findById(variantId).populate("product");
@@ -25,15 +36,7 @@ const getMyCart = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    const cart = await Cart.findOne({ user: userId })
-      .populate({
-        path: "items.variant",
-        populate: { path: "product" },
-      })
-      .populate({
-        path: "items.customDesign",
-        populate: [{ path: "template" }, { path: "selected.fabric" }],
-      });
+    const cart = await populateCartQuery(userId);
 
     return res.json({ cart: cart || { user: userId, items: [], totalAmount: 0 } });
   } catch (err) {
@@ -78,8 +81,9 @@ const addToCart = async (req, res) => {
       });
     }
 
-    cart = await recalcCart(cart);
-    return res.json({ cart });
+    await recalcCart(cart);
+    const freshCart = await populateCartQuery(userId);
+    return res.json({ cart: freshCart || { user: userId, items: [], totalAmount: 0 } });
   } catch (err) {
     return res.status(500).json({ message: err.message });
   }
@@ -105,7 +109,8 @@ const updateCartItemQty = async (req, res) => {
     if (qty <= 0) {
       cart.items.splice(idx, 1);
       await recalcCart(cart);
-      return res.json({ cart });
+      const freshCart = await populateCartQuery(userId);
+      return res.json({ cart: freshCart || { user: userId, items: [], totalAmount: 0 } });
     }
 
     const data = await getVariantUnitPrice(variantId);
@@ -118,7 +123,8 @@ const updateCartItemQty = async (req, res) => {
     cart.items[idx].priceAtAdd = unitPrice;
 
     await recalcCart(cart);
-    return res.json({ cart });
+    const freshCart = await populateCartQuery(userId);
+    return res.json({ cart: freshCart || { user: userId, items: [], totalAmount: 0 } });
   } catch (err) {
     return res.status(500).json({ message: err.message });
   }
@@ -135,8 +141,8 @@ const removeCartItem = async (req, res) => {
 
     cart.items = cart.items.filter((it) => !sameProductVariant(it, variantId));
     await recalcCart(cart);
-
-    return res.json({ cart });
+    const freshCart = await populateCartQuery(userId);
+    return res.json({ cart: freshCart || { user: userId, items: [], totalAmount: 0 } });
   } catch (err) {
     return res.status(500).json({ message: err.message });
   }
@@ -154,7 +160,8 @@ const clearCart = async (req, res) => {
     cart.totalAmount = 0;
     await cart.save();
 
-    return res.json({ cart });
+    const freshCart = await populateCartQuery(userId);
+    return res.json({ cart: freshCart || { user: userId, items: [], totalAmount: 0 } });
   } catch (err) {
     return res.status(500).json({ message: err.message });
   }

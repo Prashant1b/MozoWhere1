@@ -55,6 +55,9 @@ const orderSchema = new mongoose.Schema(
     user: { type: mongoose.Schema.Types.ObjectId, ref: "user", required: true },
 
     items: { type: [orderItemSchema], default: [] },
+    subtotalAmount: { type: Number, default: 0 },
+    discountAmount: { type: Number, default: 0 },
+    couponCode: { type: String, default: "" },
     totalAmount: { type: Number, required: true },
 
     shippingAddress: {

@@ -18,6 +18,7 @@ const createCoupon = async (req, res) => {
       value,
       minCartAmount = 0,
       maxDiscount,
+      perUserLimit = 1,
       expiryDate,
       isActive = true,
     } = req.body;
@@ -46,6 +47,7 @@ const createCoupon = async (req, res) => {
       discountType,
       value: numValue,
       minCartAmount: Number(minCartAmount) || 0,
+      perUserLimit: Math.max(0, Number(perUserLimit) || 1),
       expiryDate: ex,
       isActive: Boolean(isActive),
     };
@@ -100,6 +102,16 @@ const applyCoupon = async (req, res) => {
       return res.status(400).json({ message: `Minimum cart amount: ${coupon.minCartAmount}` });
     }
 
+    const usedEntry = (coupon.usageByUser || []).find(
+      (u) => String(u?.user) === String(userId)
+    );
+    const usedCount = Number(usedEntry?.count || 0);
+    const userLimit =
+      coupon.perUserLimit == null ? 1 : Math.max(0, Number(coupon.perUserLimit || 0));
+    if (userLimit > 0 && usedCount >= userLimit) {
+      return res.status(400).json({ message: "Coupon usage limit reached for this user" });
+    }
+
     let discount = 0;
 
     if (coupon.discountType === "flat") {
@@ -112,7 +124,14 @@ const applyCoupon = async (req, res) => {
     discount = Math.max(0, Math.min(discount, cart.totalAmount));
     const payable = cart.totalAmount - discount;
 
-    return res.json({ coupon: coupon.code, discount, payable });
+    return res.json({
+      coupon: coupon.code,
+      discount,
+      payable,
+      perUserLimit: userLimit,
+      usedCount,
+      remainingUses: userLimit === 0 ? null : Math.max(0, userLimit - usedCount),
+    });
   } catch (err) {
     return res.status(500).json({ message: err.message });
   }
