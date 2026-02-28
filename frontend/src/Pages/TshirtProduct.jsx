@@ -1,10 +1,10 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Heart, Star } from "lucide-react";
-import { Tshirt } from "../data/tshirt";
-import { useNavigate } from "react-router-dom"; // ✅ add
+import { useNavigate } from "react-router-dom";
+import { productApi } from "../api/product.api";
 
 function formatINR(n) {
-  return `₹${String(n)}`;
+  return `Rs ${String(n)}`;
 }
 
 function calcOff(mrp, price) {
@@ -14,15 +14,14 @@ function calcOff(mrp, price) {
 }
 
 function ProductCard({ item }) {
-  const navigate = useNavigate(); // ✅ add
+  const navigate = useNavigate();
   const off = item.off ?? calcOff(item.mrp, item.price);
 
   return (
-   <div
-      onClick={() => navigate(`/tshirt/${item.id}`)}
-     className="cursor-pointer flex-none w-[280px] sm:w-[320px] lg:w-[360px] bg-white border border-gray-200 rounded-sm overflow-hidden"
-   >
-      {/* image */}
+    <div
+      onClick={() => navigate(`/product/${item.slug}`)}
+      className="cursor-pointer flex-none w-[280px] sm:w-[320px] lg:w-[360px] bg-white border border-gray-200 rounded-sm overflow-hidden"
+    >
       <div className="relative aspect-[3/4] bg-gray-100">
         {item.badge && (
           <div className="absolute left-0 top-0 bg-emerald-500 text-white text-[11px] font-bold px-2 py-1">
@@ -33,21 +32,17 @@ function ProductCard({ item }) {
         {typeof item.rating === "number" && (
           <div className="absolute left-3 bottom-3 bg-white rounded-full px-2.5 py-1 flex items-center gap-1 shadow-sm">
             <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-            <span className="text-sm font-semibold text-gray-900">
-              {item.rating.toFixed(1)}
-            </span>
+            <span className="text-sm font-semibold text-gray-900">{item.rating.toFixed(1)}</span>
           </div>
         )}
 
-        <img
-          src={item.img}
-          alt={item.title}
-          className="h-full w-full object-cover"
-          loading="lazy"
-        />
+        {item.img ? (
+          <img src={item.img} alt={item.title} className="h-full w-full object-cover" loading="lazy" />
+        ) : (
+          <div className="grid h-full place-items-center text-sm text-gray-500">No image</div>
+        )}
       </div>
 
-      {/* info */}
       <div className="p-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -57,8 +52,7 @@ function ProductCard({ item }) {
 
           <button
             onClick={(e) => {
-              e.stopPropagation(); // ✅ prevent navigation on heart click
-              // wishlist logic here
+              e.stopPropagation();
             }}
             className="shrink-0 p-2 rounded-full hover:bg-gray-50"
             aria-label="wishlist"
@@ -68,19 +62,9 @@ function ProductCard({ item }) {
         </div>
 
         <div className="mt-2 flex items-baseline gap-2">
-          <div className="text-base font-extrabold text-gray-900">
-            {formatINR(item.price)}
-          </div>
-
-          {item.mrp && (
-            <div className="text-sm text-gray-400 line-through">
-              {formatINR(item.mrp)}
-            </div>
-          )}
-
-          {off ? (
-            <div className="text-sm font-bold text-emerald-600">{off}% OFF</div>
-          ) : null}
+          <div className="text-base font-extrabold text-gray-900">{formatINR(item.price)}</div>
+          {item.mrp ? <div className="text-sm text-gray-400 line-through">{formatINR(item.mrp)}</div> : null}
+          {off ? <div className="text-sm font-bold text-emerald-600">{off}% OFF</div> : null}
         </div>
       </div>
     </div>
@@ -89,25 +73,38 @@ function ProductCard({ item }) {
 
 export default function Product({ gender = "Men" }) {
   const railRef = useRef(null);
+  const [items, setItems] = useState([]);
 
   const [canLeft, setCanLeft] = useState(false);
   const [canRight, setCanRight] = useState(true);
 
-  // ✅ Filter by gender (Men/Women)
-  const list = useMemo(() => {
-    const g = String(gender).toLowerCase(); // "men" / "women"
-
-    return Tshirt.filter((p) => {
-      // ✅ You must have ONE of these fields in your data:
-      // p.gender  OR  p.shopIn  OR  p.categoryGender etc.
-      // Choose what your data actually has.
-
-      const pg =
-        (p.gender ?? p.shopIn ?? p.for ?? "").toString().toLowerCase();
-
-      return pg === g;
-    });
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const g = String(gender).toLowerCase() === "women" ? "Female" : "Male";
+        const res = await productApi.list({ gender: g, active: "true", limit: 50, sort: "-createdAt" });
+        const products = res.data?.products || [];
+        setItems(
+          products.map((p) => ({
+            id: p._id,
+            slug: p.slug,
+            brand: "Mozowhere",
+            title: p.title,
+            price: Number(p.discountPrice ?? p.basePrice ?? 0),
+            mrp: Number(p.basePrice ?? 0),
+            rating: 4.5,
+            badge: "",
+            img: p.images?.[0] || "",
+          }))
+        );
+      } catch {
+        setItems([]);
+      }
+    };
+    load();
   }, [gender]);
+
+  const list = useMemo(() => items, [items]);
 
   function updateButtons() {
     const el = railRef.current;
@@ -128,9 +125,7 @@ export default function Product({ gender = "Men" }) {
     <div className="w-full">
       <div className="bg-[#F6ECEC]">
         <div className="max-w-7xl mx-auto px-4 py-6">
-          <h1 className="text-center text-lg tracking-[0.22em] font-semibold text-gray-900">
-            Tshirts
-          </h1>
+          <h1 className="text-center text-lg tracking-[0.22em] font-semibold text-gray-900">Tshirts</h1>
         </div>
       </div>
 
@@ -174,15 +169,11 @@ export default function Product({ gender = "Men" }) {
             ))}
           </div>
 
-          {/* Optional: if no products for that gender */}
           {list.length === 0 && (
-            <div className="py-10 text-center text-gray-500">
-              No products found for {gender}
-            </div>
+            <div className="py-10 text-center text-gray-500">No products found for {gender}</div>
           )}
         </div>
       </div>
     </div>
   );
 }
-

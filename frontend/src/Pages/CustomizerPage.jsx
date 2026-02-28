@@ -9,11 +9,6 @@ import { customizeTemplateApi } from "../api/customizeTemplate.api";
 import { customizeDesignApi } from "../api/customizeDesign.api";
 import { cartApi } from "../api/cart.api";
 import { buildPreviewForSide } from "../utils/customPreview";
-import {
-  GALLERY_TABS,
-  GALLERY_ITEMS,
-  MOCKUPS_BY_PRODUCT,
-} from "../data/customizerData";
 
 const COLOR_HEX_MAP = {
   white: "#FFFFFF",
@@ -180,11 +175,20 @@ export default function CustomizerPage() {
   }, [selectedColor, selectedSize, selectedFabric, fabrics, sizes]);
 
   const mockups = useMemo(() => {
-    const fallback = MOCKUPS_BY_PRODUCT?.[template?.type] || { front: "", back: "" };
-    const front = template?.mockups?.front || fallback.front || fallback.back || "";
-    const back = template?.mockups?.back || fallback.back || front || "";
+    const front = template?.mockups?.front || "";
+    const back = template?.mockups?.back || front || "";
     return { front, back };
   }, [template]);
+
+  const galleryTabs = useMemo(
+    () => (Array.isArray(template?.galleryTabs) ? template.galleryTabs : []),
+    [template]
+  );
+
+  const galleryItems = useMemo(
+    () => (template?.galleryItems && typeof template.galleryItems === "object" ? template.galleryItems : {}),
+    [template]
+  );
 
   const onAddCustomToCart = async () => {
     if (!template?._id) return;
@@ -310,8 +314,8 @@ export default function CustomizerPage() {
           showFabric={!isAccessoryType}
           designBySide={designBySide}
           setDesignBySide={setDesignBySide}
-          galleryTabs={GALLERY_TABS}
-          galleryItems={GALLERY_ITEMS}
+          galleryTabs={galleryTabs}
+          galleryItems={galleryItems}
           onBack={() => setStep(1)}
           onNext={() => setStep(3)}
         />
