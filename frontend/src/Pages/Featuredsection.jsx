@@ -27,7 +27,7 @@ const FeaturedSection = () => {
               Mega Sale on Custom Prints
             </h3>
             <p className="mt-1 text-sm text-white/85">
-              Best prices on T-Shirts & DTF prints. Start designing today.
+              Best prices on T-Shirts & Accessories. Start designing today.
             </p>
 
             <Link to="/custom-tshirts"

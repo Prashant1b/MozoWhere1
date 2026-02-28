@@ -16,7 +16,7 @@ export default function MainBanner() {
                     <div className="relative z-10 mx-auto max-w-3xl text-center text-gray-900">
 
                         <p className="inline-flex items-center justify-center rounded-full bg-yellow-100 px-4 py-2 text-[12px] font-semibold text-yellow-700">
-                            Custom T-Shirts • DTF Prints
+                            Custom T-Shirts • Accessories
                         </p>
 
                         <h1 className="mt-5 text-[28px] sm:text-5xl lg:text-6xl font-extrabold leading-tight tracking-tight">
@@ -38,10 +38,10 @@ export default function MainBanner() {
                             </Link>
 
                             <Link
-                                to="/dtfpage"
+                                to="/shop"
                                 className="w-full sm:w-auto rounded-xl border border-gray-300 bg-white px-6 py-3 text-sm font-bold text-gray-800 hover:bg-gray-100 transition"
                             >
-                                Explore DTF
+                                Explore product
                             </Link>
                         </div>
                     </div>
@@ -69,9 +69,9 @@ export default function MainBanner() {
                         </div>
 
                         <div className="rounded-2xl bg-white shadow-lg px-6 py-5 flex flex-col items-center">
-                            <img src={dtfImg} alt="DTF" className="h-20 object-contain" />
+                            <img src={dtfImg} alt="accessories" className="h-20 object-contain" />
                             <p className="mt-2 text-sm font-semibold text-gray-700">
-                                DTF Prints
+                                Accessories
                             </p>
                         </div>
                     </div>
